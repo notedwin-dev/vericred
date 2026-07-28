@@ -37,9 +37,20 @@ async function main() {
   console.log("Contract:", address);
   console.log("Issuing as registry:", registry.address, "\n");
 
+  // Recipients: each record goes to a distinct graduate wallet.
+  const recipients = [signers[2], signers[3], signers[4], signers[5]].map(
+    (s) => (s ?? signers[0]).address
+  );
+  // Most credentials never expire; one is issued with a one-year expiry to
+  // demonstrate the feature in the demo.
+  const oneYearFromNow = Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60;
+  const expiresAts = [0, 0, 0, oneYearFromNow];
+
   const tx = await vericred.issueCredentialBatch(
     RECORDS.map((r) => r.id),
-    RECORDS.map((r) => r.cid)
+    RECORDS.map((r) => r.cid),
+    recipients,
+    expiresAts
   );
   const receipt = await tx.wait();
   console.log(`Anchored ${RECORDS.length} credentials in one tx - ${receipt.gasUsed} gas`);
