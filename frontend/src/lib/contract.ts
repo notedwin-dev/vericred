@@ -14,11 +14,10 @@ try {
 }
 
 /**
- * Read-only contract instance backed by a JSON-RPC provider. Safe to use in
- * server components, route handlers, and anywhere else that only needs to
- * call view/pure functions (e.g. `verifyCredential`).
+ * Validates that CONTRACT_ADDRESS and ABI are properly configured.
+ * Throws descriptive errors if either is missing.
  */
-export function getReadOnlyContract(): Contract {
+function validateContractConfig(): void {
   if (!CONTRACT_ADDRESS) {
     throw new Error(
       "NEXT_PUBLIC_CONTRACT_ADDRESS is not set. Deploy the contract and run the copy-config script, or set it in your .env file."
@@ -29,9 +28,18 @@ export function getReadOnlyContract(): Contract {
       "Contract ABI is empty. Run `npm run predev` (or deploy the contract) to populate src/lib/abi.json."
     );
   }
+}
+
+/**
+ * Read-only contract instance backed by a JSON-RPC provider. Safe to use in
+ * server components, route handlers, and anywhere else that only needs to
+ * call view/pure functions (e.g. `verifyCredential`).
+ */
+export function getReadOnlyContract(): Contract {
+  validateContractConfig();
 
   const provider = new JsonRpcProvider(RPC_URL);
-  return new Contract(CONTRACT_ADDRESS, abi, provider);
+  return new Contract(CONTRACT_ADDRESS!, abi, provider);
 }
 
 /**
@@ -41,16 +49,7 @@ export function getReadOnlyContract(): Contract {
  * client, or a server-side wallet for privileged/backend-driven flows.
  */
 export function getSignerContract(signer: Signer): Contract {
-  if (!CONTRACT_ADDRESS) {
-    throw new Error(
-      "NEXT_PUBLIC_CONTRACT_ADDRESS is not set. Deploy the contract and run the copy-config script, or set it in your .env file."
-    );
-  }
-  if (!abi || abi.length === 0) {
-    throw new Error(
-      "Contract ABI is empty. Run `npm run predev` (or deploy the contract) to populate src/lib/abi.json."
-    );
-  }
+  validateContractConfig();
 
-  return new Contract(CONTRACT_ADDRESS, abi, signer);
+  return new Contract(CONTRACT_ADDRESS!, abi, signer);
 }

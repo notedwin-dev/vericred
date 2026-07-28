@@ -24,7 +24,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     const contract = getReadOnlyContract();
     const result = await contract.verifyCredential(credentialId);
 
-    const [exists, valid, cid, issuer, issuedAt, recipient, expiresAt] = result;
+    const [exists, valid, cid, issuer, issuedAt] = result;
 
     if (!exists) {
       return NextResponse.json({
@@ -46,8 +46,6 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       cid,
       issuer,
       issuedAt: Number(issuedAt),
-      recipient,
-      expiresAt: Number(expiresAt),
       certificate: certificate
         ? {
             recipientName: certificate.recipientName,

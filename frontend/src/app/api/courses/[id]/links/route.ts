@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomBytes } from "crypto";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import type { CreateCollectionLinkInput } from "@/types";
@@ -81,6 +82,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (Number.isNaN(linkExpiresAtDate.getTime())) {
       return NextResponse.json({ error: "linkExpiresAt is not a valid date" }, { status: 400 });
     }
+    if (linkExpiresAtDate.getTime() <= Date.now()) {
+      return NextResponse.json({ error: "linkExpiresAt must be in the future" }, { status: 400 });
+    }
   }
 
   let certExpiresAtDate: Date | undefined;
@@ -89,10 +93,16 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (Number.isNaN(certExpiresAtDate.getTime())) {
       return NextResponse.json({ error: "certExpiresAt is not a valid date" }, { status: 400 });
     }
+    if (certExpiresAtDate.getTime() <= Date.now()) {
+      return NextResponse.json({ error: "certExpiresAt must be in the future" }, { status: 400 });
+    }
   }
+
+  const token = randomBytes(32).toString("base64url");
 
   const link = await prisma.collectionLink.create({
     data: {
+      token,
       courseId: id,
       maxCollections: maxCollections ?? null,
       linkExpiresAt: linkExpiresAtDate ?? null,

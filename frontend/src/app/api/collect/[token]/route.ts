@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
+import { generateCredentialId } from "@/lib/credential";
 import type { ClaimCollectionLinkInput } from "@/types";
 
 type RouteParams = { params: Promise<{ token: string }> };
@@ -72,7 +74,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const recipientName = body?.recipientName?.trim() || session.user.name || undefined;
+  let recipientName: string | undefined;
+  if (typeof body?.recipientName === "string") {
+    recipientName = body.recipientName.trim() || undefined;
+  }
+  if (!recipientName) {
+    recipientName = session.user.name || undefined;
+  }
   if (!recipientName) {
     return NextResponse.json({ error: "recipientName is required" }, { status: 400 });
   }
@@ -112,7 +120,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           recipientEmail,
           recipientId: session.user.id,
           courseId: link.courseId,
-          cid: "",
+          cid: null,
           walletAddress,
           expiresAt: link.certExpiresAt,
           status: "PENDING",
@@ -137,6 +145,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (error instanceof RouteError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return NextResponse.json({ error: "You have already claimed a certificate for this course" }, { status: 409 });
+    }
     console.error("Failed to claim collection link:", error);
     return NextResponse.json({ error: "Failed to claim certificate" }, { status: 500 });
   }
@@ -150,8 +161,3 @@ class RouteError extends Error {
   }
 }
 
-function generateCredentialId(): string {
-  const year = new Date().getFullYear();
-  const random = Math.random().toString(36).slice(2, 8).toUpperCase();
-  return `VC-${year}-${random}`;
-}

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAddress, verifyMessage } from "ethers";
+import { Prisma } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -57,6 +58,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ user });
   } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return NextResponse.json({ error: "This wallet is already linked to another account" }, { status: 409 });
+    }
     console.error("Failed to link wallet:", error);
     return NextResponse.json({ error: "Failed to link wallet" }, { status: 500 });
   }

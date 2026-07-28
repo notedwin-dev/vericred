@@ -117,7 +117,7 @@ model Certificate {
   recipient        User?             @relation("RecipientCerts", fields: [recipientId], references: [id])
   courseId          String
   course           Course            @relation(fields: [courseId], references: [id])
-  cid              String
+  cid              String?
   txHash           String?
   walletAddress    String?
   issuedAt         DateTime          @default(now())

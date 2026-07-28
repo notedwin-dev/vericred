@@ -65,6 +65,15 @@ export async function POST(request: NextRequest) {
   if (layout === undefined || layout === null) {
     return NextResponse.json({ error: "layout is required" }, { status: 400 });
   }
+  if (typeof layout !== "object" || Array.isArray(layout)) {
+    return NextResponse.json({ error: "layout must be a plain object" }, { status: 400 });
+  }
+
+  const layoutJson = JSON.stringify(layout);
+  const MAX_LAYOUT_SIZE = 100 * 1024; // 100KB
+  if (layoutJson.length > MAX_LAYOUT_SIZE) {
+    return NextResponse.json({ error: "layout exceeds maximum size of 100KB" }, { status: 400 });
+  }
 
   const template = await prisma.certificateTemplate.create({
     data: {
