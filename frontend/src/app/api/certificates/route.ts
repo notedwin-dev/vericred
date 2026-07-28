@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
+import { generateCredentialId } from "@/lib/credential";
 import type { IssueCertificateInput } from "@/types";
 
 /**
@@ -92,9 +94,6 @@ export async function POST(request: NextRequest) {
   if (!courseId || typeof courseId !== "string") {
     return NextResponse.json({ error: "courseId is required" }, { status: 400 });
   }
-  if (!cid || typeof cid !== "string") {
-    return NextResponse.json({ error: "cid is required" }, { status: 400 });
-  }
 
   const course = await prisma.course.findUnique({ where: { id: courseId } });
   if (!course) {
@@ -119,7 +118,18 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const credentialId = body.credentialId?.trim() || generateCredentialId();
+  let credentialId: string;
+  if (body.credentialId) {
+    if (typeof body.credentialId !== "string") {
+      return NextResponse.json({ error: "credentialId must be a string" }, { status: 400 });
+    }
+    credentialId = body.credentialId.trim();
+    if (!credentialId || !/^VC-\d{4}-[A-Z0-9]{4,12}$/.test(credentialId)) {
+      return NextResponse.json({ error: "credentialId must match format VC-YYYY-SUFFIX" }, { status: 400 });
+    }
+  } else {
+    credentialId = generateCredentialId();
+  }
 
   const existing = await prisma.certificate.findUnique({ where: { credentialId } });
   if (existing) {
@@ -137,7 +147,7 @@ export async function POST(request: NextRequest) {
         recipientEmail: recipientEmail || null,
         recipientId: recipientId || null,
         courseId,
-        cid,
+        cid: cid || null,
         txHash: txHash || null,
         walletAddress: walletAddress || null,
         expiresAt: expiresAtDate,
@@ -147,13 +157,14 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ certificate }, { status: 201 });
   } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return NextResponse.json(
+        { error: `A certificate with credentialId "${credentialId}" already exists` },
+        { status: 409 }
+      );
+    }
     console.error("Failed to create certificate:", error);
     return NextResponse.json({ error: "Failed to create certificate" }, { status: 500 });
   }
 }
 
-function generateCredentialId(): string {
-  const year = new Date().getFullYear();
-  const random = Math.random().toString(36).slice(2, 8).toUpperCase();
-  return `VC-${year}-${random}`;
-}

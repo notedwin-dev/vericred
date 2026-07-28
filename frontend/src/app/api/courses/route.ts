@@ -18,12 +18,15 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const issuerIdParam = searchParams.get("issuerId");
 
-  let issuerId: string;
+  let issuerId: string | undefined;
 
-  if (session.user.role === "ADMIN" && issuerIdParam) {
-    issuerId = issuerIdParam;
+  if (session.user.role === "ADMIN") {
+    if (issuerIdParam) {
+      issuerId = issuerIdParam;
+    }
+    // Admin without issuerIdParam: issuerId remains undefined, will list all courses
   } else {
-    if (session.user.role !== "ISSUER" && session.user.role !== "ADMIN") {
+    if (session.user.role !== "ISSUER") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
     const issuer = await prisma.issuer.findUnique({ where: { userId: session.user.id } });
@@ -33,8 +36,10 @@ export async function GET(request: NextRequest) {
     issuerId = issuer.id;
   }
 
+  const where = issuerId ? { issuerId } : {};
+
   const courses = await prisma.course.findMany({
-    where: { issuerId },
+    where,
     include: { _count: { select: { certificates: true } } },
     orderBy: { createdAt: "desc" },
   });

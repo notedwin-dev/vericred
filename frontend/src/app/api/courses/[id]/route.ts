@@ -85,6 +85,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     data.description = description || null;
   }
   if (templateId !== undefined) {
+    if (typeof templateId !== "string") {
+      return NextResponse.json({ error: "templateId must be a string" }, { status: 400 });
+    }
     const template = await prisma.certificateTemplate.findUnique({ where: { id: templateId } });
     if (!template || template.issuerId !== course.issuerId) {
       return NextResponse.json({ error: "Template not found" }, { status: 404 });
@@ -118,15 +121,33 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  if (course._count.certificates > 0) {
-    return NextResponse.json(
-      { error: "Cannot delete a course that has certificates issued against it" },
-      { status: 409 }
-    );
+  try {
+    await prisma.$transaction(async (tx) => {
+      const freshCourse = await tx.course.findUnique({
+        where: { id },
+        include: { _count: { select: { certificates: true } } },
+      });
+
+      if (!freshCourse) {
+        throw new Error("COURSE_NOT_FOUND");
+      }
+
+      if (freshCourse._count.certificates > 0) {
+        throw new Error("COURSE_HAS_CERTIFICATES");
+      }
+
+      await tx.collectionLink.deleteMany({ where: { courseId: id } });
+      await tx.course.delete({ where: { id } });
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    if (error instanceof Error && error.message === "COURSE_HAS_CERTIFICATES") {
+      return NextResponse.json(
+        { error: "Cannot delete a course that has certificates issued against it" },
+        { status: 409 }
+      );
+    }
+    throw error;
   }
-
-  await prisma.collectionLink.deleteMany({ where: { courseId: id } });
-  await prisma.course.delete({ where: { id } });
-
-  return NextResponse.json({ success: true });
 }

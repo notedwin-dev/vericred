@@ -40,16 +40,20 @@ export function formatTimestamp(
 
   if (Number.isNaN(date.getTime())) return "";
 
-  return date.toLocaleString(
-    "en-US",
-    options ?? {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    }
-  );
+  const defaultOptions: Intl.DateTimeFormatOptions = {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "UTC",
+  };
+
+  const finalOptions = options
+    ? { timeZone: "UTC", ...options }
+    : defaultOptions;
+
+  return date.toLocaleString("en-US", finalOptions);
 }
 
 /**

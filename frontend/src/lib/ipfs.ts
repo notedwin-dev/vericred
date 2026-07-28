@@ -36,26 +36,34 @@ export async function uploadToIPFS(buffer: Buffer, filename: string): Promise<Up
     JSON.stringify({ cidVersion: 1 })
   );
 
-  const response = await fetch(PINATA_PIN_FILE_URL, {
-    method: "POST",
-    headers: {
-      pinata_api_key: apiKey,
-      pinata_secret_api_key: secretKey,
-    },
-    body: formData,
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
 
-  if (!response.ok) {
-    const text = await response.text().catch(() => "");
-    throw new Error(`Pinata upload failed (${response.status}): ${text || response.statusText}`);
+  try {
+    const response = await fetch(PINATA_PIN_FILE_URL, {
+      method: "POST",
+      headers: {
+        pinata_api_key: apiKey,
+        pinata_secret_api_key: secretKey,
+      },
+      body: formData,
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      throw new Error(`Pinata upload failed (${response.status}): ${text || response.statusText}`);
+    }
+
+    const data = (await response.json()) as { IpfsHash?: string };
+    if (!data.IpfsHash) {
+      throw new Error("Pinata response did not include an IpfsHash");
+    }
+
+    return { cid: data.IpfsHash, mock: false };
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  const data = (await response.json()) as { IpfsHash?: string };
-  if (!data.IpfsHash) {
-    throw new Error("Pinata response did not include an IpfsHash");
-  }
-
-  return { cid: data.IpfsHash, mock: false };
 }
 
 /**

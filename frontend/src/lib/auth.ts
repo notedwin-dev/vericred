@@ -77,27 +77,31 @@ export const authConfig: NextAuthConfig = {
       }
 
       // Allow client-side `update()` calls (e.g. after linking a wallet) to
-      // refresh the token without requiring a full re-login.
+      // refresh the token without requiring a full re-login. Role and
+      // walletAddress are sourced exclusively from the database resync below.
       if (trigger === "update" && session) {
-        if (typeof session.walletAddress !== "undefined") {
-          token.walletAddress = session.walletAddress;
-        }
-        if (typeof session.role !== "undefined") {
-          token.role = session.role;
-        }
+        // Trigger database resync on update
       }
 
       // On subsequent requests, keep the token's role/wallet in sync with
       // the database in case they changed elsewhere (e.g. wallet linking,
-      // admin promoting a user to ISSUER).
+      // admin promoting a user to ISSUER). Rate-limit DB queries to once per
+      // 60 seconds to reduce load.
       if (!user && token.id) {
-        const dbUser = await prisma.user.findUnique({
-          where: { id: token.id as string },
-          select: { role: true, walletAddress: true },
-        });
-        if (dbUser) {
-          token.role = dbUser.role;
-          token.walletAddress = dbUser.walletAddress;
+        const now = Math.floor(Date.now() / 1000);
+        const lastRefresh = (token.lastRefresh as number) ?? 0;
+        const REFRESH_TTL = 60; // seconds
+
+        if (now - lastRefresh >= REFRESH_TTL) {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: token.id as string },
+            select: { role: true, walletAddress: true },
+          });
+          if (dbUser) {
+            token.role = dbUser.role;
+            token.walletAddress = dbUser.walletAddress;
+            token.lastRefresh = now;
+          }
         }
       }
 

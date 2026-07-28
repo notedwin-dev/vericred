@@ -73,7 +73,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const reason = body?.reason?.trim();
+  if (typeof body?.reason !== "string") {
+    return NextResponse.json({ error: "reason is required" }, { status: 400 });
+  }
+  const reason = body.reason.trim();
   if (!reason) {
     return NextResponse.json({ error: "reason is required" }, { status: 400 });
   }
