@@ -322,7 +322,7 @@ contract VeriCred {
      *         concerns custody of the record, not its validity.
      */
     function transferCredential(string calldata credentialId, address newRecipient) external {
-        if (newRecipient == address(0)) revert ZeroAddress();
+        if (newRecipient == address(0)) revert ZeroRecipient();
 
         bytes32 idHash = keccak256(bytes(credentialId));
         if (!_exists(idHash)) revert CredentialNotFound(credentialId);
