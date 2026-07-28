@@ -614,7 +614,7 @@ describe("VeriCred", function () {
 
       await expect(
         vericred.connect(graduate).transferCredential("VC-2026-0001", ethers.ZeroAddress)
-      ).to.be.revertedWithCustomError(vericred, "ZeroAddress");
+      ).to.be.revertedWithCustomError(vericred, "ZeroRecipient");
     });
 
     it("rejects a self-transfer", async function () {
@@ -704,6 +704,50 @@ describe("VeriCred", function () {
 
       const rec = await vericred.getCredential("VC-2026-0001");
       expect(rec.recipient).to.equal(recipientB.address);
+    });
+
+    it("correctly maintains recipient list when transferring a non-last credential (swap-and-pop)", async function () {
+      const { vericred, registry, graduate, recipientA } = await loadFixture(deployFixture);
+
+      // Issue 3 credentials to graduate
+      await vericred.connect(registry).issueCredential("VC-2026-0001", CID_1, graduate.address, 0);
+      await vericred.connect(registry).issueCredential("VC-2026-0002", CID_2, graduate.address, 0);
+      await vericred.connect(registry).issueCredential("VC-2026-0003", CID_1, graduate.address, 0);
+
+      // Verify graduate has 3 credentials
+      expect(await vericred.recipientCredentialCount(graduate.address)).to.equal(3);
+
+      // Transfer the FIRST credential (non-last element, exercises swap-and-pop)
+      await vericred.connect(graduate).transferCredential("VC-2026-0001", recipientA.address);
+
+      // Verify graduate now has 2 credentials
+      expect(await vericred.recipientCredentialCount(graduate.address)).to.equal(2);
+      const graduateCredentials = await vericred.getCredentialsByRecipient(graduate.address, 0, 10);
+      expect(graduateCredentials).to.have.lengthOf(2);
+      const graduateIds = graduateCredentials.map((c) => c.credentialId);
+      expect(graduateIds).to.include.members(["VC-2026-0002", "VC-2026-0003"]);
+      expect(graduateIds).to.not.include("VC-2026-0001");
+
+      // Verify recipientA has the transferred credential
+      expect(await vericred.recipientCredentialCount(recipientA.address)).to.equal(1);
+      const recipientACredentials = await vericred.getCredentialsByRecipient(recipientA.address, 0, 10);
+      expect(recipientACredentials[0].credentialId).to.equal("VC-2026-0001");
+
+      // Now transfer the swapped credential (VC-2026-0003, which was moved to index 0)
+      // to verify _recipientIndex bookkeeping is correct
+      await vericred.connect(graduate).transferCredential("VC-2026-0003", recipientA.address);
+
+      // Verify graduate now has 1 credential
+      expect(await vericred.recipientCredentialCount(graduate.address)).to.equal(1);
+      const graduateCredentialsAfter = await vericred.getCredentialsByRecipient(graduate.address, 0, 10);
+      expect(graduateCredentialsAfter).to.have.lengthOf(1);
+      expect(graduateCredentialsAfter[0].credentialId).to.equal("VC-2026-0002");
+
+      // Verify recipientA now has 2 credentials
+      expect(await vericred.recipientCredentialCount(recipientA.address)).to.equal(2);
+      const recipientACredentialsAfter = await vericred.getCredentialsByRecipient(recipientA.address, 0, 10);
+      const recipientAIds = recipientACredentialsAfter.map((c) => c.credentialId);
+      expect(recipientAIds).to.include.members(["VC-2026-0001", "VC-2026-0003"]);
     });
   });
 });
