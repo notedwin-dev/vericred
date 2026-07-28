@@ -1,0 +1,56 @@
+import { Contract, JsonRpcProvider, type InterfaceAbi, type Signer } from "ethers";
+import { CONTRACT_ADDRESS, RPC_URL } from "./config";
+
+// `abi.json` starts life as an empty array (see src/lib/abi.json) and is
+// overwritten by `scripts/copy-config.js` (run via the `predev` hook) once a
+// contract has actually been deployed. Guard the import so the app doesn't
+// crash before that has happened.
+let abi: InterfaceAbi = [];
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  abi = require("./abi.json");
+} catch {
+  abi = [];
+}
+
+/**
+ * Read-only contract instance backed by a JSON-RPC provider. Safe to use in
+ * server components, route handlers, and anywhere else that only needs to
+ * call view/pure functions (e.g. `verifyCredential`).
+ */
+export function getReadOnlyContract(): Contract {
+  if (!CONTRACT_ADDRESS) {
+    throw new Error(
+      "NEXT_PUBLIC_CONTRACT_ADDRESS is not set. Deploy the contract and run the copy-config script, or set it in your .env file."
+    );
+  }
+  if (!abi || abi.length === 0) {
+    throw new Error(
+      "Contract ABI is empty. Run `npm run predev` (or deploy the contract) to populate src/lib/abi.json."
+    );
+  }
+
+  const provider = new JsonRpcProvider(RPC_URL);
+  return new Contract(CONTRACT_ADDRESS, abi, provider);
+}
+
+/**
+ * Contract instance connected to a signer, for state-changing calls
+ * (issuing/revoking credentials, authorising institutions, etc.). The signer
+ * is expected to come from a connected wallet (e.g. `BrowserProvider`) on the
+ * client, or a server-side wallet for privileged/backend-driven flows.
+ */
+export function getSignerContract(signer: Signer): Contract {
+  if (!CONTRACT_ADDRESS) {
+    throw new Error(
+      "NEXT_PUBLIC_CONTRACT_ADDRESS is not set. Deploy the contract and run the copy-config script, or set it in your .env file."
+    );
+  }
+  if (!abi || abi.length === 0) {
+    throw new Error(
+      "Contract ABI is empty. Run `npm run predev` (or deploy the contract) to populate src/lib/abi.json."
+    );
+  }
+
+  return new Contract(CONTRACT_ADDRESS, abi, signer);
+}
