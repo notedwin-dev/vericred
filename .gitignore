@@ -7,3 +7,7 @@ frontend-config/
 coverage/
 coverage.json
 typechain-types/
+frontend/node_modules/
+frontend/.next/
+frontend/.env.local
+frontend/src/lib/abi.json
