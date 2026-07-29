@@ -18,7 +18,7 @@ export function useRole() {
     isAuthenticated: status === "authenticated",
     isAdmin: role === "ADMIN",
     isIssuer: role === "ISSUER" || role === "ADMIN",
-    isUser: !!role,
+    isUser: role === "USER",
     user: session?.user ?? null,
   };
 }

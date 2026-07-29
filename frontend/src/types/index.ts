@@ -46,7 +46,7 @@ export interface CertificateDTO {
   recipientEmail: string | null;
   recipientId: string | null;
   courseId: string;
-  cid: string;
+  cid: string | null;
   txHash: string | null;
   walletAddress: string | null;
   issuedAt: string;

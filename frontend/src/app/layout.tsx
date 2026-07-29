@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthSessionProvider } from "@/providers/session-provider";
 import { ThemeProvider } from "@/providers/theme-provider";
 import { Web3Provider } from "@/providers/web3-provider";
+import { AppKitProvider } from "@/providers/appkit-provider";
 import { Toaster } from "@/components/ui/sonner";
 
 const geistSans = Geist({
@@ -40,10 +41,12 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <AuthSessionProvider>
-            <Web3Provider>
-              {children}
-              <Toaster position="top-right" richColors closeButton />
-            </Web3Provider>
+            <AppKitProvider>
+              <Web3Provider>
+                {children}
+                <Toaster position="top-right" richColors closeButton />
+              </Web3Provider>
+            </AppKitProvider>
           </AuthSessionProvider>
         </ThemeProvider>
       </body>

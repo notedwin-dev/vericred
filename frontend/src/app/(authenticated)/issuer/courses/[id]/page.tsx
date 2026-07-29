@@ -30,28 +30,58 @@ export default function CourseDetailPage({
   const [course, setCourse] = useState<CourseDTO | null>(null);
   const [certificates, setCertificates] = useState<CertificateDTO[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [revokingId, setRevokingId] = useState<string | null>(null);
 
-  async function load() {
-    setIsLoading(true);
+  useEffect(() => {
+    let active = true;
+    const controller = new AbortController();
+
+    async function load() {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const [courseRes, certsRes] = await Promise.all([
+          fetch(`/api/courses/${id}`, { signal: controller.signal }),
+          fetch(`/api/certificates?courseId=${id}`, { signal: controller.signal }),
+        ]);
+        if (!active) return;
+        if (!courseRes.ok || !certsRes.ok) {
+          setLoadError("Failed to load course data.");
+          return;
+        }
+        const courseData = await courseRes.json();
+        const certsData = await certsRes.json();
+        if (!active) return;
+        setCourse(courseData.course);
+        setCertificates(certsData.certificates ?? []);
+      } catch (err) {
+        if (!active) return;
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setLoadError("Failed to load course data.");
+      } finally {
+        if (active) setIsLoading(false);
+      }
+    }
+
+    load();
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [id]);
+
+  async function reloadCertificates() {
     try {
-      const [courseRes, certsRes] = await Promise.all([
-        fetch(`/api/courses/${id}`),
-        fetch(`/api/certificates?courseId=${id}`),
-      ]);
-      const courseData = await courseRes.json();
-      const certsData = await certsRes.json();
-      if (courseRes.ok) setCourse(courseData.course);
-      if (certsRes.ok) setCertificates(certsData.certificates ?? []);
-    } finally {
-      setIsLoading(false);
+      const res = await fetch(`/api/certificates?courseId=${id}`);
+      if (res.ok) {
+        const data = await res.json();
+        setCertificates(data.certificates ?? []);
+      }
+    } catch {
+      // best-effort reload
     }
   }
-
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
 
   async function handleRevoke(certId: string) {
     const reason = window.prompt("Reason for revocation:");
@@ -83,6 +113,10 @@ export default function CourseDetailPage({
     );
   }
 
+  if (loadError) {
+    return <p className="text-sm text-red-600 dark:text-red-400">{loadError}</p>;
+  }
+
   if (!course) {
     return <p className="text-sm text-muted-foreground">Course not found.</p>;
   }
@@ -105,7 +139,10 @@ export default function CourseDetailPage({
         </div>
         <IssueCertificateDialog
           courseId={id}
-          onIssued={(cert) => setCertificates((prev) => [cert, ...prev])}
+          onIssued={(cert) => {
+            setCertificates((prev) => [cert, ...prev]);
+            reloadCertificates();
+          }}
         />
       </div>
 

@@ -4,7 +4,6 @@ import {
   Clock,
   ShieldOff,
   ExternalLink,
-  Copy,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -23,7 +22,8 @@ function resolveStatus(result: VerifyApiResult): DisplayStatus {
   if (cert?.expiresAt && new Date(cert.expiresAt).getTime() < Date.now()) {
     return "EXPIRED";
   }
-  return "REVOKED";
+  if (cert?.status === "REVOKED" || cert?.revokedAt) return "REVOKED";
+  return "EXPIRED";
 }
 
 const STATUS_CONFIG: Record<
@@ -180,14 +180,3 @@ export function VerifyResult({ result }: { result: VerifyApiResult }) {
   );
 }
 
-export function CopyableId({ value }: { value: string }) {
-  return (
-    <button
-      type="button"
-      onClick={() => navigator.clipboard.writeText(value)}
-      className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-    >
-      <Copy className="size-3" /> Copy
-    </button>
-  );
-}

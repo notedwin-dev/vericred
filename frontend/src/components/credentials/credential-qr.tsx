@@ -8,6 +8,7 @@ export function CredentialQr({ value, size = 160 }: { value: string; size?: numb
 
   useEffect(() => {
     let cancelled = false;
+    setDataUrl(null);
     QRCode.toDataURL(value, { width: size * 2, margin: 1 })
       .then((url) => {
         if (!cancelled) setDataUrl(url);
