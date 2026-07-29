@@ -65,32 +65,38 @@ export function IssueCertificateDialog({ courseId, onIssued }: IssueCertificateD
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to create certificate record");
 
-      toast.success(`Certificate record created (${data.certificate.credentialId}).`);
-      onIssued?.(data.certificate);
-
-      if (isConnected && cid && walletAddress) {
-        const expiresAtUnix = expiresAt ? Math.floor(new Date(expiresAt).getTime() / 1000) : 0;
-        await run(
-          async () => {
-            const contract = await getWriteContract();
-            const tx = await contract.issueCredential(
-              data.certificate.credentialId,
-              cid,
-              walletAddress,
-              expiresAtUnix
-            );
-            return tx.wait();
-          },
-          {
-            pending: "Anchoring credential on-chain...",
-            success: "Credential anchored on-chain.",
-            error: "On-chain issuance failed",
-          }
-        );
-      }
+      const certificate: CertificateDTO = data.certificate;
+      toast.success(`Certificate record created (${certificate.credentialId}).`);
 
       reset();
       setOpen(false);
+      onIssued?.(certificate);
+
+      if (isConnected && cid && walletAddress) {
+        const expiresAtUnix = expiresAt ? Math.floor(new Date(expiresAt).getTime() / 1000) : 0;
+        try {
+          await run(
+            async () => {
+              const contract = await getWriteContract();
+              const tx = await contract.issueCredential(
+                certificate.credentialId,
+                cid,
+                walletAddress,
+                expiresAtUnix
+              );
+              return tx.wait();
+            },
+            {
+              pending: "Anchoring credential on-chain...",
+              success: "Credential anchored on-chain.",
+              error: "On-chain anchoring failed",
+            }
+          );
+        } catch {
+          // Toast already shown by useToastTransaction — dialog is closed,
+          // cert record exists in DB for manual retry
+        }
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to issue certificate");
     } finally {

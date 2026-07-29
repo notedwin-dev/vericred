@@ -27,8 +27,14 @@ export function InstitutionsPanel() {
     setIsLoading(true);
     try {
       const res = await fetch("/api/institutions");
+      if (!res.ok) {
+        toast.error("Failed to load institutions.");
+        return;
+      }
       const data = await res.json();
-      if (res.ok) setInstitutions(data.institutions ?? []);
+      setInstitutions(data.institutions ?? []);
+    } catch {
+      toast.error("Failed to load institutions.");
     } finally {
       setIsLoading(false);
     }
@@ -39,27 +45,38 @@ export function InstitutionsPanel() {
   }, []);
 
   async function authoriseOnChain(target: string) {
-    await run(
-      async () => {
-        const contract = await getWriteContract();
-        const tx = await contract.authoriseInstitution(target);
-        return tx.wait();
-      },
-      { pending: "Authorising institution...", success: "Institution authorised on-chain." }
-    );
-    await load();
+    setPendingAddress(target);
+    try {
+      await run(
+        async () => {
+          const contract = await getWriteContract();
+          const tx = await contract.authoriseInstitution(target);
+          return tx.wait();
+        },
+        { pending: "Authorising institution...", success: "Institution authorised on-chain." }
+      );
+      await load();
+    } catch {
+      // Toast already shown by useToastTransaction
+    } finally {
+      setPendingAddress(null);
+    }
   }
 
   async function removeOnChain(target: string) {
-    await run(
-      async () => {
-        const contract = await getWriteContract();
-        const tx = await contract.removeInstitution(target);
-        return tx.wait();
-      },
-      { pending: "Removing institution...", success: "Institution removed on-chain." }
-    );
-    await load();
+    try {
+      await run(
+        async () => {
+          const contract = await getWriteContract();
+          const tx = await contract.removeInstitution(target);
+          return tx.wait();
+        },
+        { pending: "Removing institution...", success: "Institution removed on-chain." }
+      );
+      await load();
+    } catch {
+      // Toast already shown by useToastTransaction
+    }
   }
 
   async function handleAuthorise(e: FormEvent) {
@@ -74,7 +91,6 @@ export function InstitutionsPanel() {
       const data = await res.json();
 
       if (res.status === 501) {
-        // Server-side signing not configured — fall back to the connected wallet.
         await authoriseOnChain(address);
       } else if (!res.ok) {
         throw new Error(data.error || "Failed to authorise institution");
@@ -84,7 +100,8 @@ export function InstitutionsPanel() {
       }
       setAddress("");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : parseContractError(err));
+      const msg = parseContractError(err);
+      toast.error(msg || (err instanceof Error ? err.message : "Failed to authorise institution"));
     } finally {
       setIsSubmitting(false);
     }
@@ -107,7 +124,8 @@ export function InstitutionsPanel() {
         await load();
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : parseContractError(err));
+      const msg = parseContractError(err);
+      toast.error(msg || (err instanceof Error ? err.message : "Failed to remove institution"));
     } finally {
       setPendingAddress(null);
     }
@@ -189,7 +207,11 @@ export function InstitutionsPanel() {
                     disabled={pendingAddress === inst.address}
                     onClick={() => authoriseOnChain(inst.address)}
                   >
-                    <ShieldCheck className="size-3.5" />
+                    {pendingAddress === inst.address ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <ShieldCheck className="size-3.5" />
+                    )}
                     Re-authorise
                   </Button>
                 )}

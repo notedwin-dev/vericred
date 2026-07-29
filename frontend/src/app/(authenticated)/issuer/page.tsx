@@ -15,11 +15,12 @@ import {
 } from "@/components/ui/table";
 import { StatusBadge } from "@/components/credentials/status-badge";
 import { IssuerNav } from "@/components/issuer/issuer-nav";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useCredentials } from "@/hooks/use-credentials";
 import { formatTimestamp } from "@/lib/utils";
 
 export default function IssuerDashboardPage() {
-  const { certificates, isLoading } = useCredentials();
+  const { certificates, isLoading, error } = useCredentials();
 
   const total = certificates.length;
   const active = certificates.filter((c) => c.status === "ACTIVE").length;
@@ -44,6 +45,13 @@ export default function IssuerDashboardPage() {
       </div>
 
       <IssuerNav />
+
+      {error && (
+        <Alert variant="destructive">
+          <AlertTitle>Failed to load certificates</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard icon={Award} label="Total Certificates" value={total} isLoading={isLoading} />

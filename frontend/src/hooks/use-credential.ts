@@ -1,40 +1,48 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { VerifyApiResult } from "@/types/verify";
 
-/**
- * Fetches a single credential's verification result from the public
- * `/api/verify/[credentialId]` endpoint. Used by the verify pages and the
- * shareable public credential page — no auth required.
- */
 export function useCredential(credentialId: string | undefined) {
   const [result, setResult] = useState<VerifyApiResult | null>(null);
   const [isLoading, setIsLoading] = useState(!!credentialId);
   const [error, setError] = useState<string | null>(null);
-
-  const fetchCredential = useCallback(async () => {
-    if (!credentialId) return;
-    setIsLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/verify/${encodeURIComponent(credentialId)}`);
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to verify credential");
-      }
-      setResult(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to verify credential");
-      setResult(null);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [credentialId]);
+  const versionRef = useRef(0);
 
   useEffect(() => {
-    fetchCredential();
-  }, [fetchCredential]);
+    if (!credentialId) {
+      setResult(null);
+      setIsLoading(false);
+      return;
+    }
 
-  return { result, isLoading, error, refetch: fetchCredential };
+    const version = ++versionRef.current;
+    const controller = new AbortController();
+
+    setIsLoading(true);
+    setError(null);
+
+    fetch(`/api/verify/${encodeURIComponent(credentialId)}`, { signal: controller.signal })
+      .then(async (res) => {
+        const data = await res.json();
+        if (version !== versionRef.current) return;
+        if (!res.ok) throw new Error(data.error || "Failed to verify credential");
+        setResult(data);
+      })
+      .catch((err) => {
+        if (version !== versionRef.current) return;
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setError(err instanceof Error ? err.message : "Failed to verify credential");
+        setResult(null);
+      })
+      .finally(() => {
+        if (version === versionRef.current) setIsLoading(false);
+      });
+
+    return () => {
+      controller.abort();
+    };
+  }, [credentialId]);
+
+  return { result, isLoading, error };
 }

@@ -52,7 +52,7 @@ vericred/
 
 ## Prerequisites
 
-- Node.js 18 LTS or newer
+- Node.js >= 18.18.0 (required by Next.js 15)
 - npm 9 or newer
 - PostgreSQL (local instance or hosted)
 - MetaMask (or another WalletConnect-compatible wallet) for on-chain interactions
@@ -82,11 +82,14 @@ In a third terminal:
 ```bash
 cd frontend
 npm install
+```
+
+Configure `frontend/.env.local` with your database URL and auth secrets (see [Environment Variables](#environment-variables)) before running migrations:
+
+```bash
 npx prisma migrate dev  # apply the PostgreSQL schema
 npm run dev              # auto-copies contract config, starts dev server
 ```
-
-Configure `frontend/.env.local` with your database URL and auth secrets (see [Environment Variables](#environment-variables)) before running `npm run dev`.
 
 ### 4. Open the app
 
@@ -100,10 +103,14 @@ npm run compile       # Compile contracts
 npm run test           # Run contract tests
 
 # Frontend
-cd frontend && npm run build   # Production build
+cd frontend
+node scripts/copy-config.js    # Copy contract config (auto-runs in dev, needed before build)
+npm run build                  # Production build
 ```
 
 ### Import test accounts into MetaMask
+
+> **Warning:** These are Hardhat's default test keys for **local development only**. Never use them on public or production networks — they are publicly known and any funds sent to them will be lost.
 
 | Role | Private Key |
 |---|---|

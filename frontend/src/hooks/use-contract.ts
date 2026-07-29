@@ -21,7 +21,7 @@ try {
  * error if no wallet is connected.
  */
 export function useContract() {
-  const { getSigner, isConnected } = useWeb3Context();
+  const { getSigner, isConnected, isWrongNetwork } = useWeb3Context();
 
   const readOnlyContract = useMemo(() => {
     if (!CONTRACT_ADDRESS) return null;
@@ -36,9 +36,12 @@ export function useContract() {
     if (!isConnected) {
       throw new Error("Connect your wallet to perform this action.");
     }
+    if (isWrongNetwork) {
+      throw new Error("Switch to the correct network before performing this action.");
+    }
     const signer = await getSigner();
     return new Contract(CONTRACT_ADDRESS, abi, signer);
-  }, [getSigner, isConnected]);
+  }, [getSigner, isConnected, isWrongNetwork]);
 
   return { readOnlyContract, getWriteContract };
 }

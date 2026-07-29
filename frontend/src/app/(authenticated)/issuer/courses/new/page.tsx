@@ -28,13 +28,21 @@ export default function NewCoursePage() {
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const [templateError, setTemplateError] = useState<string | null>(null);
+
   useEffect(() => {
     let cancelled = false;
     async function load() {
       try {
         const res = await fetch("/api/templates");
+        if (!res.ok) {
+          if (!cancelled) setTemplateError("Failed to load templates.");
+          return;
+        }
         const data = await res.json();
-        if (res.ok && !cancelled) setTemplates(data.templates ?? []);
+        if (!cancelled) setTemplates(data.templates ?? []);
+      } catch {
+        if (!cancelled) setTemplateError("Failed to load templates.");
       } finally {
         if (!cancelled) setIsLoadingTemplates(false);
       }
@@ -113,6 +121,8 @@ export default function NewCoursePage() {
               <Label htmlFor="template">Certificate template</Label>
               {isLoadingTemplates ? (
                 <p className="text-sm text-muted-foreground">Loading templates...</p>
+              ) : templateError ? (
+                <p className="text-sm text-red-600 dark:text-red-400">{templateError}</p>
               ) : templates.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   No templates yet.{" "}

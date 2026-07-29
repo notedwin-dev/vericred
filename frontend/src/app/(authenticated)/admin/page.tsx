@@ -11,13 +11,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { StatusBadge } from "@/components/credentials/status-badge";
 import { InstitutionsPanel } from "@/components/admin/institutions-panel";
 import { useCredentials } from "@/hooks/use-credentials";
 import { formatTimestamp } from "@/lib/utils";
 
 export default function AdminPage() {
-  const { certificates, isLoading } = useCredentials();
+  const { certificates, isLoading, error } = useCredentials();
 
   return (
     <div className="flex flex-col gap-6">
@@ -29,6 +30,13 @@ export default function AdminPage() {
       </div>
 
       <InstitutionsPanel />
+
+      {error && (
+        <Alert variant="destructive">
+          <AlertTitle>Failed to load credentials</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
       <Card>
         <CardContent className="flex flex-col gap-4">

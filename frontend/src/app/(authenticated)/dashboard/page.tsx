@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Award } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -12,19 +12,29 @@ export default function DashboardPage() {
   const { certificates, isLoading, error } = useCredentials();
   const [enrichment, setEnrichment] = useState<Record<string, VerifyApiResult["certificate"]>>({});
 
+  const credentialIds = useMemo(
+    () => certificates.map((c) => c.credentialId).join(","),
+    [certificates]
+  );
+
   useEffect(() => {
+    if (!credentialIds) return;
     let cancelled = false;
+    const controller = new AbortController();
 
     async function enrich() {
+      const ids = credentialIds.split(",");
       const results = await Promise.all(
-        certificates.map(async (cert) => {
+        ids.map(async (id) => {
           try {
-            const res = await fetch(`/api/verify/${encodeURIComponent(cert.credentialId)}`);
-            if (!res.ok) return [cert.credentialId, null] as const;
+            const res = await fetch(`/api/verify/${encodeURIComponent(id)}`, {
+              signal: controller.signal,
+            });
+            if (!res.ok) return [id, null] as const;
             const data: VerifyApiResult = await res.json();
-            return [cert.credentialId, data.certificate] as const;
+            return [id, data.certificate] as const;
           } catch {
-            return [cert.credentialId, null] as const;
+            return [id, null] as const;
           }
         })
       );
@@ -33,12 +43,13 @@ export default function DashboardPage() {
       }
     }
 
-    if (certificates.length > 0) enrich();
+    enrich();
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
-  }, [certificates]);
+  }, [credentialIds]);
 
   return (
     <div className="flex flex-col gap-6">

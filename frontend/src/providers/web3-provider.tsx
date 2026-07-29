@@ -43,6 +43,13 @@ const Web3Context = createContext<Web3ContextValue | undefined>(undefined);
 
 const DISCONNECT_KEY = "vericred:wallet-disconnected";
 
+function createProvider(): BrowserProvider | null {
+  if (typeof window !== "undefined" && window.ethereum) {
+    return new BrowserProvider(window.ethereum);
+  }
+  return null;
+}
+
 export function Web3Provider({ children }: { children: ReactNode }) {
   const [address, setAddress] = useState<string | null>(null);
   const [chainId, setChainId] = useState<number | null>(null);
@@ -53,7 +60,7 @@ export function Web3Provider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (typeof window !== "undefined" && window.ethereum) {
       setHasProvider(true);
-      setProvider(new BrowserProvider(window.ethereum));
+      setProvider(createProvider());
     }
   }, []);
 
@@ -75,7 +82,6 @@ export function Web3Provider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!window.ethereum) return;
-    // Only silently reconnect if the user hasn't explicitly disconnected.
     if (localStorage.getItem(DISCONNECT_KEY) !== "1") {
       refresh();
     }
@@ -87,6 +93,7 @@ export function Web3Provider({ children }: { children: ReactNode }) {
     const handleChainChanged = (...args: unknown[]) => {
       const newChainId = args[0] as string;
       setChainId(parseInt(newChainId, 16));
+      setProvider(createProvider());
     };
 
     window.ethereum.on("accountsChanged", handleAccountsChanged);
@@ -108,6 +115,7 @@ export function Web3Provider({ children }: { children: ReactNode }) {
         method: "eth_requestAccounts",
       })) as string[];
       localStorage.removeItem(DISCONNECT_KEY);
+      setProvider(createProvider());
       await refresh();
       return accounts?.[0] ?? null;
     } finally {
@@ -148,6 +156,10 @@ export function Web3Provider({ children }: { children: ReactNode }) {
               nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
             },
           ],
+        });
+        await window.ethereum.request({
+          method: "wallet_switchEthereumChain",
+          params: [{ chainId: hexChainId }],
         });
       }
     }

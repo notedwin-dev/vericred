@@ -17,8 +17,14 @@ export function CollectionLinks({ courseId }: { courseId: string }) {
     setIsLoading(true);
     try {
       const res = await fetch(`/api/courses/${courseId}/links`);
+      if (!res.ok) {
+        toast.error("Failed to load collection links.");
+        return;
+      }
       const data = await res.json();
-      if (res.ok) setLinks(data.links ?? []);
+      setLinks(data.links ?? []);
+    } catch {
+      toast.error("Failed to load collection links.");
     } finally {
       setIsLoading(false);
     }
@@ -48,10 +54,14 @@ export function CollectionLinks({ courseId }: { courseId: string }) {
     }
   }
 
-  function copyLink(token: string) {
+  async function copyLink(token: string) {
     const url = `${window.location.origin}/collect/${token}`;
-    navigator.clipboard.writeText(url);
-    toast.success("Link copied to clipboard.");
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("Link copied to clipboard.");
+    } catch {
+      toast.error("Failed to copy link to clipboard.");
+    }
   }
 
   return (

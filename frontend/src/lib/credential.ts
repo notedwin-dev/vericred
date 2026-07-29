@@ -8,6 +8,6 @@ import { randomBytes } from "crypto";
  */
 export function generateCredentialId(): string {
   const year = new Date().getFullYear();
-  const suffix = randomBytes(6).toString("hex").toUpperCase().slice(0, 10);
+  const suffix = randomBytes(8).toString("base64url").replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 12);
   return `VC-${year}-${suffix}`;
 }

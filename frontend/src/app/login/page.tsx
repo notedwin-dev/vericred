@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState, type FormEvent } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { toast } from "sonner";
 import { ShieldCheck, Wallet, Loader2 } from "lucide-react";
@@ -13,12 +13,35 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { GitHubIcon, GoogleIcon, LinkedInIcon } from "@/components/icons/brand-icons";
 
+let useWeb3Modal: (() => { open: () => Promise<void> }) | undefined;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const mod = require("@web3modal/ethers/react");
+  useWeb3Modal = mod.useWeb3Modal;
+} catch {
+  // AppKit not configured (no projectId) — WalletConnect button will show a message
+}
+
 export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<string | null>(null);
+  const [walletLoading, setWalletLoading] = useState(false);
+
+  const modal = useWeb3Modal?.();
 
   async function handleCredentialsSubmit(e: FormEvent) {
     e.preventDefault();
@@ -36,7 +59,7 @@ export default function LoginPage() {
       }
 
       toast.success("Signed in successfully.");
-      router.push("/dashboard");
+      router.push(callbackUrl);
       router.refresh();
     } catch {
       toast.error("Something went wrong. Please try again.");
@@ -47,11 +70,22 @@ export default function LoginPage() {
 
   function handleOAuth(provider: "github" | "google" | "linkedin") {
     setOauthLoading(provider);
-    signIn(provider, { callbackUrl: "/dashboard" });
+    signIn(provider, { callbackUrl });
   }
 
-  function handleWalletConnect() {
-    toast.info("WalletConnect sign-in is coming soon. Use email or an OAuth provider for now.");
+  async function handleWalletConnect() {
+    if (!modal) {
+      toast.info("WalletConnect is not configured. Set NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID in .env.local.");
+      return;
+    }
+    setWalletLoading(true);
+    try {
+      await modal.open();
+    } catch {
+      toast.error("Failed to open WalletConnect modal.");
+    } finally {
+      setWalletLoading(false);
+    }
   }
 
   return (
@@ -74,8 +108,13 @@ export default function LoginPage() {
             size="lg"
             className="h-11 w-full gap-2 bg-indigo-600 text-white hover:bg-indigo-600/90 dark:bg-indigo-500 dark:hover:bg-indigo-500/90"
             onClick={handleWalletConnect}
+            disabled={walletLoading}
           >
-            <Wallet className="size-4" />
+            {walletLoading ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Wallet className="size-4" />
+            )}
             Continue with WalletConnect
           </Button>
 

@@ -36,7 +36,7 @@ export function useToastTransaction() {
           ? `${options.error}: ${parseContractError(error)}`
           : parseContractError(error);
         toast.error(message, { id: toastId });
-        return null;
+        throw error;
       } finally {
         setIsPending(false);
       }
