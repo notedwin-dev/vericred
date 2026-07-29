@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { isAllowedAvatarUrl } from "@/lib/config";
 
 const USERNAME_RE = /^[a-zA-Z0-9_-]{3,30}$/;
 
@@ -61,6 +62,9 @@ export async function PATCH(request: NextRequest) {
   const data: Prisma.UserUpdateInput = {};
 
   if (body.name !== undefined) {
+    if (typeof body.name !== "string") {
+      return NextResponse.json({ error: "name must be a string" }, { status: 400 });
+    }
     const trimmed = body.name.trim();
     if (!trimmed) {
       return NextResponse.json({ error: "Name cannot be empty" }, { status: 400 });
@@ -88,7 +92,13 @@ export async function PATCH(request: NextRequest) {
   }
 
   if (body.image !== undefined) {
-    data.image = body.image;
+    if (body.image === null) {
+      data.image = null;
+    } else if (typeof body.image !== "string" || !isAllowedAvatarUrl(body.image)) {
+      return NextResponse.json({ error: "image must be a URL from the configured IPFS gateway" }, { status: 400 });
+    } else {
+      data.image = body.image;
+    }
   }
 
   if (Object.keys(data).length === 0) {

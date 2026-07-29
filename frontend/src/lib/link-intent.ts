@@ -1,7 +1,8 @@
 import { createHmac, randomBytes, timingSafeEqual } from "crypto";
 
 export const LINK_INTENT_COOKIE = "vc_link_intent";
-const TTL_MS = 10 * 60 * 1000; // 10 minutes
+export const LINK_INTENT_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const TTL_MS = LINK_INTENT_TTL_MS;
 
 export type LinkableProvider = "github" | "google" | "linkedin";
 

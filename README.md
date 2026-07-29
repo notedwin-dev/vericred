@@ -136,6 +136,8 @@ Set these in `frontend/.env.local`:
 | `DATABASE_URL` | PostgreSQL connection string |
 | `NEXTAUTH_SECRET` | Random secret used to sign Auth.js sessions |
 | `NEXTAUTH_URL` | Base URL of the app (`http://localhost:3000` in dev) |
+| `SENDGRID_API_KEY` | SendGrid API key used to send email-verification links |
+| `SENDGRID_FROM_EMAIL` | Verified sender address SendGrid sends from |
 | `GITHUB_ID` / `GITHUB_SECRET` | GitHub OAuth app credentials |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth client credentials |
 | `LINKEDIN_CLIENT_ID` / `LINKEDIN_CLIENT_SECRET` | LinkedIn OAuth app credentials |

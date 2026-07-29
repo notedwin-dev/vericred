@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { uploadToIPFS } from "@/lib/ipfs";
+import { IPFS_GATEWAY } from "@/lib/config";
 
 const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 const ALLOWED_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
@@ -42,7 +43,22 @@ export async function POST(request: NextRequest) {
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  const { cid } = await uploadToIPFS(buffer, `avatar-${session.user.id}-${Date.now()}`);
 
-  return NextResponse.json({ url: `https://ipfs.io/ipfs/${cid}` });
+  let cid: string;
+  let mock: boolean;
+  try {
+    const result = await uploadToIPFS(buffer, `avatar-${session.user.id}-${Date.now()}`);
+    cid = result.cid;
+    mock = result.mock;
+  } catch (error) {
+    console.error("Failed to upload avatar to IPFS:", error);
+    return NextResponse.json({ error: "Failed to upload image. Please try again." }, { status: 502 });
+  }
+
+  if (mock && process.env.NODE_ENV === "production") {
+    console.error("Refusing to serve a mock IPFS CID for an avatar upload in production — Pinata is not configured.");
+    return NextResponse.json({ error: "Image upload is not available right now." }, { status: 503 });
+  }
+
+  return NextResponse.json({ url: `${IPFS_GATEWAY}/ipfs/${cid}` });
 }

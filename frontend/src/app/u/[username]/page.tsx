@@ -5,15 +5,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/credentials/status-badge";
-import { prisma } from "@/lib/prisma";
+import { getPublicProfile } from "@/lib/public-profile";
 import { formatTimestamp } from "@/lib/utils";
 
 export async function generateMetadata({ params }: { params: Promise<{ username: string }> }) {
   const { username } = await params;
-  const user = await prisma.user.findUnique({
-    where: { username: username.toLowerCase() },
-    select: { name: true, username: true },
-  });
+  const user = await getPublicProfile(username);
 
   if (!user) return { title: "User Not Found — VeriCred" };
 
@@ -30,36 +27,7 @@ export default async function PublicProfilePage({
 }) {
   const { username } = await params;
 
-  const user = await prisma.user.findUnique({
-    where: { username: username.toLowerCase() },
-    select: {
-      id: true,
-      name: true,
-      username: true,
-      image: true,
-      createdAt: true,
-      certificates: {
-        where: { status: { in: ["ACTIVE", "EXPIRED"] } },
-        select: {
-          id: true,
-          credentialId: true,
-          recipientName: true,
-          status: true,
-          issuedAt: true,
-          expiresAt: true,
-          course: {
-            select: {
-              name: true,
-              issuer: {
-                select: { organizationName: true },
-              },
-            },
-          },
-        },
-        orderBy: { issuedAt: "desc" },
-      },
-    },
-  });
+  const user = await getPublicProfile(username);
 
   if (!user) notFound();
 

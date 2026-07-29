@@ -1,17 +1,23 @@
 import sgMail from "@sendgrid/mail";
 
 /**
- * If SENDGRID_API_KEY isn't configured (e.g. local dev), the verification
- * link is logged instead of emailed so the flow can still be exercised.
+ * If SENDGRID_API_KEY isn't configured: in development, this warns and
+ * returns without sending, so local testing doesn't require a SendGrid
+ * account — but it deliberately never logs the recipient or the
+ * verification URL itself (that URL carries a bearer token; logs end up
+ * in aggregators, CI output, and screen-shares more often than people
+ * expect). In production, it throws instead, so the caller fails the
+ * request with a 503 rather than reporting success while sending nothing.
  */
 export async function sendVerificationEmail(to: string, verifyUrl: string) {
   const apiKey = process.env.SENDGRID_API_KEY;
   const from = process.env.SENDGRID_FROM_EMAIL;
 
   if (!apiKey || !from) {
-    console.warn(
-      `[email] SENDGRID_API_KEY / SENDGRID_FROM_EMAIL not set — verification link for ${to}: ${verifyUrl}`
-    );
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("SENDGRID_API_KEY / SENDGRID_FROM_EMAIL are not configured");
+    }
+    console.warn("[email] SENDGRID_API_KEY / SENDGRID_FROM_EMAIL not set — verification email not sent.");
     return;
   }
 

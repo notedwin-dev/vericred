@@ -7,6 +7,7 @@ import { sendVerificationEmail } from "@/lib/email";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
+const RESEND_COOLDOWN_MS = 60 * 1000; // 1 minute
 
 /**
  * POST /api/user/email
@@ -39,11 +40,36 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 });
   }
 
-  const existingVerified = await prisma.user.findFirst({
-    where: { email, emailVerified: { not: null } },
-  });
-  if (existingVerified && existingVerified.id !== session.user.id) {
+  // `User.email` is only ever written once verified, but a credentials
+  // registration (see /api/auth/register) sets it immediately without
+  // setting emailVerified — so any existing row with this email is a real
+  // collision, not just verified ones, or promoting this pendingEmail
+  // later would fail the column's unique constraint.
+  const existing = await prisma.user.findFirst({ where: { email } });
+  if (existing && existing.id !== session.user.id) {
     return NextResponse.json({ error: "Email is already in use" }, { status: 409 });
+  }
+
+  const identifier = session.user.id;
+
+  const recentToken = await prisma.verificationToken.findFirst({
+    where: { identifier, createdAt: { gt: new Date(Date.now() - RESEND_COOLDOWN_MS) } },
+  });
+  if (recentToken) {
+    return NextResponse.json(
+      { error: "Please wait a minute before requesting another verification email." },
+      { status: 429 }
+    );
+  }
+
+  const token = randomBytes(32).toString("hex");
+  const verifyUrl = new URL(`/api/user/email/verify?token=${token}`, request.nextUrl.origin);
+
+  try {
+    await sendVerificationEmail(email, verifyUrl.toString());
+  } catch (error) {
+    console.error("Failed to send verification email:", error);
+    return NextResponse.json({ error: "Failed to send verification email. Please try again later." }, { status: 503 });
   }
 
   const passwordHash = body.password ? await bcrypt.hash(body.password, 10) : undefined;
@@ -56,16 +82,10 @@ export async function POST(request: NextRequest) {
     },
   });
 
-  const identifier = session.user.id;
   await prisma.verificationToken.deleteMany({ where: { identifier } });
-
-  const token = randomBytes(32).toString("hex");
   await prisma.verificationToken.create({
     data: { identifier, token, expires: new Date(Date.now() + TOKEN_TTL_MS) },
   });
-
-  const verifyUrl = new URL(`/api/user/email/verify?token=${token}`, request.nextUrl.origin);
-  await sendVerificationEmail(email, verifyUrl.toString());
 
   return NextResponse.json({ pendingEmail: email });
 }

@@ -1,17 +1,33 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { Link2, Plus, Copy, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import type { CollectionLinkDTO } from "@/types";
 
 export function CollectionLinks({ courseId }: { courseId: string }) {
   const [links, setLinks] = useState<CollectionLinkDTO[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  const [maxCollections, setMaxCollections] = useState("");
+  const [linkExpiresAt, setLinkExpiresAt] = useState("");
+  const [certExpiresAt, setCertExpiresAt] = useState("");
 
   async function load() {
     setIsLoading(true);
@@ -35,17 +51,30 @@ export function CollectionLinks({ courseId }: { courseId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseId]);
 
-  async function handleCreate() {
+  function reset() {
+    setMaxCollections("");
+    setLinkExpiresAt("");
+    setCertExpiresAt("");
+  }
+
+  async function handleCreate(e: FormEvent) {
+    e.preventDefault();
     setIsCreating(true);
     try {
       const res = await fetch(`/api/courses/${courseId}/links`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify({
+          maxCollections: maxCollections ? Number(maxCollections) : undefined,
+          linkExpiresAt: linkExpiresAt ? new Date(linkExpiresAt).toISOString() : undefined,
+          certExpiresAt: certExpiresAt ? new Date(certExpiresAt).toISOString() : undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to create link");
       toast.success("Collection link created.");
+      reset();
+      setOpen(false);
       await load();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to create link");
@@ -71,10 +100,66 @@ export function CollectionLinks({ courseId }: { courseId: string }) {
           <h2 className="flex items-center gap-1.5 font-medium">
             <Link2 className="size-4" /> Collection Links
           </h2>
-          <Button size="sm" variant="outline" className="gap-1.5" onClick={handleCreate} disabled={isCreating}>
-            {isCreating ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
-            New Link
-          </Button>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger render={<Button size="sm" variant="outline" className="gap-1.5" />}>
+              <Plus className="size-4" />
+              New Link
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>New Collection Link</DialogTitle>
+                <DialogDescription>
+                  Recipients who visit this link can sign in and self-claim a certificate for
+                  this course. All fields are optional — leave blank for unlimited collections
+                  and no expiry.
+                </DialogDescription>
+              </DialogHeader>
+
+              <form onSubmit={handleCreate} className="flex flex-col gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="maxCollections">Max collections</Label>
+                  <Input
+                    id="maxCollections"
+                    type="number"
+                    min={1}
+                    step={1}
+                    placeholder="Unlimited"
+                    value={maxCollections}
+                    onChange={(e) => setMaxCollections(e.target.value)}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="linkExpiresAt">Link expires</Label>
+                  <Input
+                    id="linkExpiresAt"
+                    type="datetime-local"
+                    value={linkExpiresAt}
+                    onChange={(e) => setLinkExpiresAt(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">When the link itself stops working.</p>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="certExpiresAt">Certificate expires</Label>
+                  <Input
+                    id="certExpiresAt"
+                    type="datetime-local"
+                    value={certExpiresAt}
+                    onChange={(e) => setCertExpiresAt(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    When credentials claimed via this link expire on-chain.
+                  </p>
+                </div>
+
+                <DialogFooter>
+                  <Button type="submit" disabled={isCreating} className="gap-1.5">
+                    {isCreating && <Loader2 className="size-4 animate-spin" />}
+                    Create Link
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
         </div>
 
         {isLoading && <p className="text-sm text-muted-foreground">Loading...</p>}
@@ -96,6 +181,10 @@ export function CollectionLinks({ courseId }: { courseId: string }) {
                 <p className="mt-1 text-xs text-muted-foreground">
                   {link.currentCount}
                   {link.maxCollections ? ` / ${link.maxCollections}` : ""} claimed
+                  {link.linkExpiresAt &&
+                    ` · link expires ${new Date(link.linkExpiresAt).toLocaleDateString()}`}
+                  {link.certExpiresAt &&
+                    ` · cert expires ${new Date(link.certExpiresAt).toLocaleDateString()}`}
                 </p>
               </div>
               <div className="flex items-center gap-2">

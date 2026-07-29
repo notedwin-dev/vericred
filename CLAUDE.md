@@ -75,6 +75,16 @@ Note: email/password signup does **not** currently generate a custody wallet —
 - Users can link additional OAuth providers to an already-authenticated account from Settings (`/api/user/link-intent` sets a signed cookie, then the normal `signIn(provider)` flow completes; the `signIn` callback in `lib/auth.ts` re-parents the resulting Account row onto the current user instead of creating a second one) and unlink one (blocked if it would leave the account with no remaining sign-in method)
 - If an OAuth sign-in's email collides with a different, unrelated existing account, Auth.js's built-in `OAuthAccountNotLinked` safety check fires — VeriCred does **not** auto-merge; the login page shows a message pointing the user to sign in with their original method and link the provider from Settings instead
 
+### Certificate Issuance
+
+- Issuers never supply a CID — `POST /api/certificates` (single) and `POST /api/certificates/batch` (CSV) both generate the certificate PDF server-side (`lib/certificate-pdf.tsx` + `lib/generate-certificate.tsx`, embedding a QR code to `/verify/[credentialId]`) and pin it to IPFS via `lib/ipfs.ts` before the DB row is created — the returned `cid` is always real, or a clearly-marked mock if `PINATA_API_KEY`/`PINATA_SECRET_KEY` aren't set
+- `recipientName` is required; `walletAddress` is optional on every issuance path (single, CSV batch, collection-link claim) — the contract's `issueCredential`/`issueCredentialBatch` both revert with `ZeroRecipient()` on a zero address, so a certificate without a wallet simply stays `PENDING` (off-chain only, PDF/CID already generated) until one is known
+- **Anchoring, two paths — both attribute correctly to the institution on-chain:**
+  - *Interactive* (issuer's own browser has a wallet connected): the single-issue dialog signs `issueCredential` directly; CSV batch issuance signs one `issueCredentialBatch()` for every row that has a wallet, in one MetaMask approval. Either way, the client then `PATCH`es the certificate(s) with `{ txHash }` (see `/api/certificates/[id]`) to flip `PENDING` → `ACTIVE`.
+  - *Deferred* (no issuer browser present — a collection-link claim, or a wallet-first user linking a wallet days later): `lib/anchor.ts`'s `autoAnchorCertificate`/`autoAnchorCertificates` sign with the owning **Issuer's own platform-custodied operator wallet** (`Issuer.operatorAddress`/`operatorKeyEnc`, generated + AES-256-GCM-encrypted by `lib/operator-wallet.ts`, decrypted only in-process to sign) — never the platform admin's key. When anchoring several certificates at once, they're grouped by issuer first since one `issueCredentialBatch` transaction can only be attributed to one `msg.sender`. If an issuer has no operator wallet provisioned, matching certificates just stay `PENDING` (logged, not thrown).
+  - Provisioning an operator wallet (currently only `prisma/seed.ts` does this — no self-service issuer-creation flow exists yet) requires `ENCRYPTION_KEY` to encrypt it. Funding it with gas money and authorising it on-chain are deliberately separate concerns: the **issuer's own wallet** funds it (in seed data, the known Hardhat Account #1 test key stands in for "the issuer's wallet" — a real institution would send gas money from its own connected wallet, since the platform never holds a real user's private key), while only **admin** can call `authoriseInstitution` (`onlyAdmin` on the contract; admin is auto-authorised as an institution itself in the constructor, which is separately how `ADMIN_PRIVATE_KEY` is used for `/api/institutions`).
+- CSV batch format: header row with `name` (required), `email`, `wallet` (both optional, matched case-insensitively) — parsed client-side by `lib/csv.ts`, previewed before submit, capped at 100 rows server-side
+
 ### Key Routes
 
 - `/` — Landing (no navbar, sign-in + verify CTAs)
@@ -108,10 +118,12 @@ npm run seed                 # Seed demo data
 cd frontend
 npm install                  # Install frontend deps
 npx prisma migrate dev       # Run DB migrations
+npx prisma db seed           # Seed an Admin user + Issuer (Asia Pacific University)
 npm run dev                  # Start dev server (auto-copies contract config via predev)
 npm run build                # Production build
 npm run start                # Start production server
 npm run lint                 # ESLint
+npm run test                 # Vitest integration tests (needs a local Postgres; see prisma/seed.ts and .env.test)
 ```
 
 ## Demo Setup
@@ -119,8 +131,19 @@ npm run lint                 # ESLint
 1. Terminal 1: `npm run node` (Hardhat node at localhost:8545)
 2. Terminal 2: `npm run deploy && npm run seed`
 3. Set up PostgreSQL, configure `frontend/.env.local` with DB URL + auth secrets
-4. Terminal 3: `cd frontend && npx prisma migrate dev && npm run dev`
+4. Terminal 3: `cd frontend && npx prisma migrate dev && npx prisma db seed && npm run dev`
 5. Open http://localhost:3000
+
+### Seeded demo accounts (`npx prisma db seed`, from `frontend/prisma/seed.ts`)
+
+There's no self-service way to become Admin/Issuer in the app (see Auth's account-linking section) — this script is currently the only way to get one. It's idempotent (safe to re-run) and promotes an existing user in place if one already has the target wallet address, so it won't create duplicates.
+
+| Role | Email | Password | Wallet (matches Hardhat account) |
+|---|---|---|---|
+| Admin | `admin@vericred.local` | `Admin@12345` | Account #0 — `0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266` |
+| Issuer (Asia Pacific University) | `issuer@apu.edu.my` | `Issuer@12345` | Account #1 — `0x70997970C51812dc3A010C7d01b50e0d17dc79C8` |
+
+The wallet addresses match `scripts/deploy.js`'s Admin/Registry accounts, so signing in with either MetaMask account (see the private keys below) lands on the matching seeded user instead of creating a new one.
 
 ### Hardhat Test Accounts for MetaMask
 
@@ -144,6 +167,25 @@ DATABASE_URL=postgresql://user:pass@localhost:5432/vericred
 # Auth
 NEXTAUTH_SECRET=<random-secret>
 NEXTAUTH_URL=http://localhost:3000
+
+# Server-signed on-chain transactions (admin is also an authorised institution
+# per VeriCred.sol's constructor). Used by /api/institutions (authorise/remove)
+# and, at issuer-provisioning time, to authorise each issuer's own operator
+# wallet via authoriseInstitution (onlyAdmin on the contract — no way around
+# that). Does NOT fund operator wallets — that comes from the issuer's own
+# wallet (see prisma/seed.ts), same as a real institution would. Auto-anchoring
+# itself signs with the operator wallet too, not this one (see ENCRYPTION_KEY
+# below). Without ADMIN_PRIVATE_KEY, admin-only actions are skipped with a
+# console warning, not an error.
+ADMIN_PRIVATE_KEY=<admin-wallet-private-key>
+
+# Encrypts each Issuer's platform-custodied operator wallet private key at
+# rest (lib/crypto.ts, AES-256-GCM). 32 bytes, hex (64 characters) — generate
+# with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`.
+# Without it, operator wallet provisioning (prisma/seed.ts) is skipped and
+# deferred anchoring has no signer to use for that issuer.
+ENCRYPTION_KEY=<64-hex-character-key>
+
 GITHUB_ID=<github-oauth-app-id>
 GITHUB_SECRET=<github-oauth-app-secret>
 GOOGLE_CLIENT_ID=<google-oauth-client-id>
@@ -158,9 +200,14 @@ PINATA_SECRET_KEY=<pinata-secret-key>
 # WalletConnect (via @reown/appkit)
 NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=<walletconnect-cloud-project-id>
 
-# Email (SendGrid) — sends the pendingEmail verification link.
-# If unset, the verification link is logged to the console instead so the
-# flow still works in local dev without a SendGrid account.
+# Email (SendGrid) — sends the pendingEmail verification link
+# (see /api/user/email, lib/email.ts). If unset:
+#   - development: warns and returns without sending (no SendGrid account
+#     needed for local testing) — the recipient/URL are deliberately never
+#     logged, even here, since the URL carries a bearer token. Check the
+#     VerificationToken table directly (e.g. Prisma Studio) if you need it.
+#   - production: throws, and /api/user/email returns 503, rather than
+#     silently reporting success while sending nothing.
 SENDGRID_API_KEY=<sendgrid-api-key>
 SENDGRID_FROM_EMAIL=<verified-sender-email>
 ```
