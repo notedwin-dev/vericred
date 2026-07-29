@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -27,33 +28,57 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Missing provider" }, { status: 400 });
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: {
-      walletAddress: true,
-      passwordHash: true,
-      emailVerified: true,
-      accounts: { select: { provider: true } },
-    },
-  });
-  if (!user) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  try {
+    await prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({
+        where: { id: session.user.id },
+        select: {
+          walletAddress: true,
+          passwordHash: true,
+          emailVerified: true,
+          accounts: { select: { provider: true } },
+        },
+      });
+      if (!user) {
+        throw new RouteError(404, "User not found");
+      }
+
+      const hasCredentialsLogin = Boolean(user.passwordHash && user.emailVerified);
+      const remainingProviders = user.accounts.filter((a) => a.provider !== provider).length;
+      const canUnlink = Boolean(user.walletAddress) || hasCredentialsLogin || remainingProviders > 0;
+
+      if (!canUnlink) {
+        throw new RouteError(409, "Can't unlink your only sign-in method. Set a password or connect a wallet first.");
+      }
+
+      // Read (above) and delete happen inside the same serializable
+      // transaction so two concurrent unlink requests can't both pass the
+      // guard and leave the user with zero sign-in methods — Postgres
+      // aborts whichever transaction loses the conflict (see catch below).
+      await tx.account.deleteMany({
+        where: { userId: session.user.id, provider },
+      });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+  } catch (error) {
+    if (error instanceof RouteError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034") {
+      return NextResponse.json(
+        { error: "Another change to your account happened at the same time — please try again." },
+        { status: 409 }
+      );
+    }
+    throw error;
   }
-
-  const hasCredentialsLogin = Boolean(user.passwordHash && user.emailVerified);
-  const remainingProviders = user.accounts.filter((a) => a.provider !== provider).length;
-  const canUnlink = Boolean(user.walletAddress) || hasCredentialsLogin || remainingProviders > 0;
-
-  if (!canUnlink) {
-    return NextResponse.json(
-      { error: "Can't unlink your only sign-in method. Set a password or connect a wallet first." },
-      { status: 409 }
-    );
-  }
-
-  await prisma.account.deleteMany({
-    where: { userId: session.user.id, provider },
-  });
 
   return NextResponse.json({ ok: true });
+}
+
+class RouteError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
 }

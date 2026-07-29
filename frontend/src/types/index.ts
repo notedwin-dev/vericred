@@ -63,10 +63,19 @@ export interface IssueCertificateInput {
   recipientEmail?: string;
   recipientId?: string;
   courseId: string;
-  cid: string;
-  txHash?: string;
   walletAddress?: string;
   expiresAt?: string;
+}
+
+/** One row of a CSV batch upload — same shape, one course per batch. */
+export interface BatchIssueCertificateRow {
+  recipientName: string;
+  recipientEmail?: string;
+  walletAddress?: string;
+}
+
+export interface ConfirmAnchorInput {
+  txHash: string;
 }
 
 export interface RevokeCertificateInput {

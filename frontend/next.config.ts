@@ -14,6 +14,15 @@ const nextConfig: NextConfig = {
     };
     return config;
   },
+  // Same as the webpack alias above, for `next dev --turbopack` — Turbopack
+  // doesn't support aliasing to `false`, so this points at a real empty
+  // module instead. Keep both in sync; drop whichever bundler's block once
+  // the @x402/svm import itself is removed or made optional upstream.
+  turbopack: {
+    resolveAlias: {
+      "@x402/svm/exact/client": "./src/lib/empty-module.ts",
+    },
+  },
 };
 
 export default nextConfig;

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getPublicProfile } from "@/lib/public-profile";
 
 /**
  * GET /api/user/:username
@@ -12,36 +12,7 @@ export async function GET(
 ) {
   const { username } = await params;
 
-  const user = await prisma.user.findUnique({
-    where: { username: username.toLowerCase() },
-    select: {
-      id: true,
-      name: true,
-      username: true,
-      image: true,
-      createdAt: true,
-      certificates: {
-        where: { status: { in: ["ACTIVE", "EXPIRED"] } },
-        select: {
-          id: true,
-          credentialId: true,
-          recipientName: true,
-          status: true,
-          issuedAt: true,
-          expiresAt: true,
-          course: {
-            select: {
-              name: true,
-              issuer: {
-                select: { organizationName: true, logo: true },
-              },
-            },
-          },
-        },
-        orderBy: { issuedAt: "desc" },
-      },
-    },
-  });
+  const user = await getPublicProfile(username);
 
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import type { RevokeCertificateInput } from "@/types";
+import type { RevokeCertificateInput, ConfirmAnchorInput } from "@/types";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -49,11 +49,14 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 /**
  * PATCH /api/certificates/[id]
  *
- * Revokes a certificate. Requires the calling user to be the issuer that
- * owns the certificate's course, or an admin. The actual on-chain
- * `revokeCredential` transaction is expected to be signed client-side; this
- * endpoint records the revocation in the off-chain index once that
- * transaction succeeds (or ahead of it, for issuer-initiated flows).
+ * Two actions, distinguished by body shape — both require the calling user
+ * to be the issuer that owns the certificate's course, or an admin:
+ *
+ *  - `{ reason }`  — revoke. The on-chain `revokeCredential` transaction is
+ *    signed client-side; this records the revocation in the off-chain index.
+ *  - `{ txHash }`  — confirm anchor. Called after a client-side (or
+ *    server-side, see lib/anchor.ts) `issueCredential`/`issueCredentialBatch`
+ *    transaction confirms, moving the certificate from PENDING to ACTIVE.
  */
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   const session = await auth();
@@ -66,19 +69,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
   const { id } = await params;
 
-  let body: RevokeCertificateInput;
+  let body: RevokeCertificateInput & ConfirmAnchorInput;
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
-  }
-
-  if (typeof body?.reason !== "string") {
-    return NextResponse.json({ error: "reason is required" }, { status: 400 });
-  }
-  const reason = body.reason.trim();
-  if (!reason) {
-    return NextResponse.json({ error: "reason is required" }, { status: 400 });
   }
 
   const certificate = await prisma.certificate.findUnique({
@@ -94,6 +89,32 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     if (!issuer || certificate.course.issuerId !== issuer.id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+  }
+
+  if (typeof body?.txHash === "string") {
+    if (!body.txHash.trim()) {
+      return NextResponse.json({ error: "txHash is required" }, { status: 400 });
+    }
+    if (certificate.status !== "PENDING") {
+      return NextResponse.json({ error: "Only a PENDING certificate can be confirmed as anchored" }, { status: 409 });
+    }
+    if (!certificate.walletAddress) {
+      return NextResponse.json({ error: "Certificate has no recipient wallet to anchor to" }, { status: 409 });
+    }
+
+    const updated = await prisma.certificate.update({
+      where: { id },
+      data: { status: "ACTIVE", txHash: body.txHash.trim() },
+    });
+    return NextResponse.json({ certificate: updated });
+  }
+
+  if (typeof body?.reason !== "string") {
+    return NextResponse.json({ error: "reason is required" }, { status: 400 });
+  }
+  const reason = body.reason.trim();
+  if (!reason) {
+    return NextResponse.json({ error: "reason is required" }, { status: 400 });
   }
 
   if (certificate.status === "REVOKED") {

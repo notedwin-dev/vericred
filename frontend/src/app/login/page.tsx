@@ -94,9 +94,13 @@ function LoginForm() {
     }
   }
 
-  function handleOAuth(provider: "github" | "google" | "linkedin") {
+  async function handleOAuth(provider: "github" | "google" | "linkedin") {
     setOauthLoading(provider);
-    signIn(provider, { callbackUrl });
+    try {
+      await signIn(provider, { callbackUrl });
+    } finally {
+      setOauthLoading(null);
+    }
   }
 
   return (

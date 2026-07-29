@@ -24,9 +24,13 @@ export default function RegisterPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<string | null>(null);
 
-  function handleOAuth(provider: "github" | "google" | "linkedin") {
+  async function handleOAuth(provider: "github" | "google" | "linkedin") {
     setOauthLoading(provider);
-    signIn(provider, { callbackUrl: "/dashboard" });
+    try {
+      await signIn(provider, { callbackUrl: "/dashboard" });
+    } finally {
+      setOauthLoading(null);
+    }
   }
 
   async function handleSubmit(e: FormEvent) {

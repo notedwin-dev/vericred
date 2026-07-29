@@ -9,7 +9,7 @@ import bcrypt from "bcrypt";
 import { cookies } from "next/headers";
 import { SiweMessage } from "siwe";
 import { prisma } from "@/lib/prisma";
-import { LINK_INTENT_COOKIE, verifyLinkIntent } from "@/lib/link-intent";
+import { LINK_INTENT_COOKIE, LINK_INTENT_TTL_MS, verifyLinkIntent } from "@/lib/link-intent";
 import type { Role } from "@/types";
 
 const NEXTAUTH_DOMAIN = process.env.NEXTAUTH_URL ? new URL(process.env.NEXTAUTH_URL).host : undefined;
@@ -179,7 +179,9 @@ export const authConfig: NextAuthConfig = {
       const isFreshOrphan =
         resolvedUser !== null &&
         resolvedUser.accounts.length === 1 &&
-        Date.now() - resolvedUser.createdAt.getTime() < 15_000;
+        // Matches the link-intent cookie's own TTL — anything older than
+        // that can't have been created by *this* link attempt.
+        Date.now() - resolvedUser.createdAt.getTime() < LINK_INTENT_TTL_MS;
 
       if (!isFreshOrphan) {
         // This provider identity is already tied to a different, pre-existing
@@ -187,19 +189,30 @@ export const authConfig: NextAuthConfig = {
         return "/login?error=AccountAlreadyLinked";
       }
 
-      const target = await prisma.$transaction(async (tx) => {
-        await tx.account.update({
-          where: {
-            provider_providerAccountId: {
-              provider: account.provider,
-              providerAccountId: account.providerAccountId,
+      let target;
+      try {
+        target = await prisma.$transaction(async (tx) => {
+          await tx.account.update({
+            where: {
+              provider_providerAccountId: {
+                provider: account.provider,
+                providerAccountId: account.providerAccountId,
+              },
             },
-          },
-          data: { userId: intent.userId },
+            data: { userId: intent.userId },
+          });
+          await tx.user.delete({ where: { id: user.id! } });
+          return tx.user.findUnique({ where: { id: intent.userId } });
         });
-        await tx.user.delete({ where: { id: user.id! } });
-        return tx.user.findUnique({ where: { id: intent.userId } });
-      });
+      } catch (error) {
+        // Most likely intent.userId no longer exists (deleted between the
+        // link attempt starting and the OAuth redirect completing), which
+        // makes the account update above fail its foreign-key constraint.
+        // Don't let that escape as an unhandled error — the orphan account
+        // this callback almost re-parented is still intact either way.
+        console.error("[auth] Failed to complete account link:", error);
+        return "/login?error=AccountAlreadyLinked";
+      }
 
       if (!target) return "/login?error=AccountAlreadyLinked";
 
@@ -254,6 +267,12 @@ export const authConfig: NextAuthConfig = {
             token.email = dbUser.email ?? undefined;
             token.pendingEmail = dbUser.pendingEmail;
             token.lastRefresh = now;
+          } else {
+            // The user this token was issued for no longer exists (deleted
+            // account, admin action, etc.) — end the session instead of
+            // continuing to trust a token with stale role/identity fields
+            // for up to the rest of its natural lifetime.
+            return null;
           }
         }
       }
