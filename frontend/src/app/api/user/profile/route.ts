@@ -23,10 +23,12 @@ export async function GET() {
       name: true,
       username: true,
       email: true,
+      pendingEmail: true,
       image: true,
       walletAddress: true,
       role: true,
       createdAt: true,
+      accounts: { select: { provider: true } },
     },
   });
 
@@ -34,7 +36,8 @@ export async function GET() {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
-  return NextResponse.json({ user });
+  const { accounts, ...rest } = user;
+  return NextResponse.json({ user: { ...rest, linkedProviders: accounts.map((a) => a.provider) } });
 }
 
 /**

@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.3",
+    "@sendgrid/mail": "^8.1.6",
     "@base-ui/react": "^1.6.0",
     "@prisma/client": "^6.19.3",
     "@reown/appkit": "^1.8.23",

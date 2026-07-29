@@ -5,6 +5,7 @@ import { useState } from "react";
 import { ShieldCheck, ArrowLeft, Loader2 } from "lucide-react";
 import { VerifyForm } from "@/components/credentials/verify-form";
 import { VerifyResult } from "@/components/credentials/verify-result";
+import { PublicAuthAction } from "@/components/layout/public-auth-action";
 import type { VerifyApiResult } from "@/types/verify";
 
 export default function VerifyPage() {
@@ -35,12 +36,7 @@ export default function VerifyPage() {
           <ShieldCheck className="size-5" />
           VeriCred
         </Link>
-        <Link
-          href="/login"
-          className="text-sm font-medium text-muted-foreground hover:text-foreground"
-        >
-          Sign In
-        </Link>
+        <PublicAuthAction />
       </header>
 
       <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-6 py-12 sm:px-10">

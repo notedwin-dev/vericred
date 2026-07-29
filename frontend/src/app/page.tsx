@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ShieldCheck, FileCheck2, Link2, Search, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PublicAuthAction } from "@/components/layout/public-auth-action";
 
 export default function Home() {
   return (
@@ -11,9 +12,7 @@ export default function Home() {
           <ShieldCheck className="size-5" />
           VeriCred
         </div>
-        <Button render={<Link href="/login" />} nativeButton={false} variant="outline">
-          Sign In
-        </Button>
+        <PublicAuthAction />
       </header>
 
       <main className="flex flex-1 flex-col items-center">
@@ -97,7 +96,6 @@ export default function Home() {
 
       <footer className="border-t px-6 py-8 text-center text-sm text-muted-foreground sm:px-10">
         <p>VeriCred &middot; Academic Credential Verification System</p>
-        <p className="mt-1">APU CT124-3-3-BCD &middot; Group 14</p>
       </footer>
     </div>
   );

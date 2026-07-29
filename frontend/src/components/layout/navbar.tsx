@@ -43,6 +43,7 @@ const navLinks = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["USER", "ISSUER", "ADMIN"] },
   { href: "/issuer", label: "Issuer", icon: Building2, roles: ["ISSUER", "ADMIN"] },
   { href: "/admin", label: "Admin", icon: Shield, roles: ["ADMIN"] },
+  { href: "/dashboard/settings", label: "Settings", icon: Settings, roles: ["USER", "ISSUER", "ADMIN"] },
 ];
 
 export function Navbar() {
@@ -91,12 +92,11 @@ export function Navbar() {
           <Button
             render={<Link href="/verify" />}
             nativeButton={false}
-            variant="ghost"
-            size="icon-sm"
-            className="hidden sm:inline-flex"
-            aria-label="Verify a credential"
+            size="sm"
+            className="hidden gap-1.5 border border-input bg-white text-black shadow-sm hover:bg-white/90 sm:inline-flex dark:bg-white dark:text-black dark:hover:bg-white/90"
           >
             <Search className="size-4" />
+            Verify
           </Button>
 
           <Button
@@ -149,14 +149,6 @@ export function Navbar() {
                     {link.label}
                   </Link>
                 ))}
-                <Link
-                  href="/dashboard/settings"
-                  onClick={() => setMobileOpen(false)}
-                  className="flex items-center gap-2 rounded-md px-2 py-2 text-sm font-medium hover:bg-muted"
-                >
-                  <Settings className="size-4" />
-                  Settings
-                </Link>
               </nav>
             </SheetContent>
           </Sheet>
@@ -268,10 +260,6 @@ function ProfileDropdownMenu({
             Public Profile
           </DropdownMenuItem>
         )}
-        <DropdownMenuItem render={<Link href="/dashboard/settings" />}>
-          <Settings />
-          Settings
-        </DropdownMenuItem>
         {isConnected && onDisconnect && (
           <>
             <DropdownMenuSeparator />
