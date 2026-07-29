@@ -11,7 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { formatAddress, formatTimestamp } from "@/lib/utils";
 import type { VerifyApiResult } from "@/types/verify";
 
-type DisplayStatus = "VALID" | "REVOKED" | "EXPIRED" | "NOT_FOUND";
+type DisplayStatus = "VALID" | "REVOKED" | "EXPIRED" | "PENDING" | "NOT_FOUND";
 
 function resolveStatus(result: VerifyApiResult): DisplayStatus {
   if (!result.exists) return "NOT_FOUND";
@@ -23,6 +23,7 @@ function resolveStatus(result: VerifyApiResult): DisplayStatus {
     return "EXPIRED";
   }
   if (cert?.status === "REVOKED" || cert?.revokedAt) return "REVOKED";
+  if (cert?.status === "PENDING") return "PENDING";
   return "EXPIRED";
 }
 
@@ -54,6 +55,13 @@ const STATUS_CONFIG: Record<
   },
   EXPIRED: {
     label: "Expired",
+    icon: Clock,
+    badgeClass: "bg-muted text-muted-foreground",
+    cardClass: "border-border",
+    iconClass: "text-muted-foreground",
+  },
+  PENDING: {
+    label: "Pending Anchoring",
     icon: Clock,
     badgeClass: "bg-muted text-muted-foreground",
     cardClass: "border-border",

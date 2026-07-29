@@ -182,6 +182,7 @@ export default function PublicCredentialPage({
                   <Separator />
                   <Button
                     render={<a href={linkedInUrl} target="_blank" rel="noreferrer" />}
+                    nativeButton={false}
                     className="w-fit gap-2 bg-[#0A66C2] text-white hover:bg-[#0A66C2]/90"
                   >
                     <LinkedInIcon className="size-4" />

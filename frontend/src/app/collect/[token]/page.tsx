@@ -124,7 +124,7 @@ export default function CollectPage({
               {link.active && status === "unauthenticated" && (
                 <div className="flex w-full flex-col gap-2">
                   <p className="text-sm text-muted-foreground">Sign in to claim this certificate.</p>
-                  <Button render={<Link href={`/login?callbackUrl=/collect/${token}`} />} className="w-full">
+                  <Button render={<Link href={`/login?callbackUrl=/collect/${token}`} />} nativeButton={false} className="w-full">
                     Sign in to claim
                   </Button>
                 </div>
@@ -155,7 +155,7 @@ export default function CollectPage({
                 <Button variant="outline" onClick={() => router.push("/dashboard")}>
                   Go to Dashboard
                 </Button>
-                <Button render={<Link href={`/c/${encodeURIComponent(claimed.credentialId)}`} />}>
+                <Button render={<Link href={`/c/${encodeURIComponent(claimed.credentialId)}`} />} nativeButton={false}>
                   View Credential
                 </Button>
               </div>

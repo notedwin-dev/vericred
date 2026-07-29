@@ -38,12 +38,14 @@ export function useCredentials(options: UseCredentialsOptions = {}) {
         throw new Error(body.error || "Failed to load certificates");
       }
       const data = await res.json();
+      if (controllerRef.current !== controller) return;
       setCertificates(data.certificates ?? []);
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;
+      if (controllerRef.current !== controller) return;
       setError(err instanceof Error ? err.message : "Failed to load certificates");
     } finally {
-      if (!controller.signal.aborted) setIsLoading(false);
+      if (controllerRef.current === controller) setIsLoading(false);
     }
   }, [courseId, recipientId, enabled]);
 

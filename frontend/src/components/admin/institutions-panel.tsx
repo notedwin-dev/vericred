@@ -10,7 +10,6 @@ import { Badge } from "@/components/ui/badge";
 import { formatAddress, formatTimestamp } from "@/lib/utils";
 import { useContract } from "@/hooks/use-contract";
 import { useToastTransaction } from "@/hooks/use-toast-transaction";
-import { parseContractError } from "@/lib/errors";
 import type { InstitutionDTO } from "@/types";
 
 export function InstitutionsPanel() {
@@ -100,8 +99,7 @@ export function InstitutionsPanel() {
       }
       setAddress("");
     } catch (err) {
-      const msg = parseContractError(err);
-      toast.error(msg || (err instanceof Error ? err.message : "Failed to authorise institution"));
+      toast.error(err instanceof Error ? err.message : "Failed to authorise institution");
     } finally {
       setIsSubmitting(false);
     }
@@ -124,8 +122,7 @@ export function InstitutionsPanel() {
         await load();
       }
     } catch (err) {
-      const msg = parseContractError(err);
-      toast.error(msg || (err instanceof Error ? err.message : "Failed to remove institution"));
+      toast.error(err instanceof Error ? err.message : "Failed to remove institution");
     } finally {
       setPendingAddress(null);
     }
