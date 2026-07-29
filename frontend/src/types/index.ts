@@ -153,6 +153,7 @@ export interface InstitutionDTO {
 export interface SessionUser {
   id: string;
   name?: string | null;
+  username?: string | null;
   email?: string | null;
   image?: string | null;
   role: Role;
