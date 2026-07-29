@@ -25,7 +25,7 @@ export const siweConfig = createSIWEConfig({
       version: "1",
       domain: window.location.host,
       uri: window.location.origin,
-      address: getAddress(address),
+      address: getAddress(address.split(":").pop()!),
       chainId,
       nonce,
       statement: STATEMENT,

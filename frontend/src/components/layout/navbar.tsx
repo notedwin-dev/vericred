@@ -15,12 +15,17 @@ import {
   Search,
   Moon,
   Sun,
+  Settings,
+  User,
+  Unplug,
 } from "lucide-react";
 import { useTheme } from "next-themes";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -30,9 +35,11 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { cn, formatAddress } from "@/lib/utils";
 import { useRole } from "@/hooks/use-role";
-import { useWallet } from "@/hooks/use-wallet";
+import { useAppKitWallet } from "@/hooks/use-appkit-wallet";
 
-const links = [
+const WALLETCONNECT_CONFIGURED = Boolean(process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID);
+
+const navLinks = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["USER", "ISSUER", "ADMIN"] },
   { href: "/issuer", label: "Issuer", icon: Building2, roles: ["ISSUER", "ADMIN"] },
   { href: "/admin", label: "Admin", icon: Shield, roles: ["ADMIN"] },
@@ -41,13 +48,12 @@ const links = [
 export function Navbar() {
   const pathname = usePathname();
   const { role, user } = useRole();
-  const { address, isConnected } = useWallet();
   const { theme, setTheme } = useTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const visibleLinks = links.filter((link) => role && link.roles.includes(role));
-
+  const visibleLinks = navLinks.filter((link) => role && link.roles.includes(role));
   const initials = (user?.name || user?.email || "?").slice(0, 2).toUpperCase();
+  const username = (user as { username?: string | null } | null)?.username;
 
   return (
     <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80">
@@ -104,45 +110,11 @@ export function Navbar() {
             <Moon className="absolute size-4 scale-0 rotate-90 dark:scale-100 dark:rotate-0" />
           </Button>
 
-          {isConnected && (
-            <span className="hidden items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium text-muted-foreground sm:inline-flex">
-              <Wallet className="size-3" />
-              {formatAddress(address)}
-            </span>
+          {WALLETCONNECT_CONFIGURED ? (
+            <AppKitProfileDropdown user={user} initials={initials} username={username} />
+          ) : (
+            <FallbackProfileDropdown user={user} initials={initials} username={username} />
           )}
-
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button variant="ghost" size="icon-sm" className="rounded-full" />
-              }
-            >
-              <Avatar size="sm">
-                <AvatarImage src={user?.image ?? undefined} alt={user?.name ?? "User"} />
-                <AvatarFallback>{initials}</AvatarFallback>
-              </Avatar>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>
-                <div className="flex flex-col">
-                  <span className="font-medium">{user?.name || "Account"}</span>
-                  <span className="truncate text-xs font-normal text-muted-foreground">
-                    {user?.email}
-                  </span>
-                </div>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem render={<Link href="/dashboard" />}>
-                <LayoutDashboard />
-                Dashboard
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive" onClick={() => signOut({ callbackUrl: "/" })}>
-                <LogOut />
-                Sign out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
 
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger
@@ -177,11 +149,144 @@ export function Navbar() {
                     {link.label}
                   </Link>
                 ))}
+                <Link
+                  href="/dashboard/settings"
+                  onClick={() => setMobileOpen(false)}
+                  className="flex items-center gap-2 rounded-md px-2 py-2 text-sm font-medium hover:bg-muted"
+                >
+                  <Settings className="size-4" />
+                  Settings
+                </Link>
               </nav>
             </SheetContent>
           </Sheet>
         </div>
       </div>
     </header>
+  );
+}
+
+// ── Dropdown internals ──────────────────────────────────────────────
+
+interface DropdownProps {
+  user: { name?: string | null; email?: string | null; image?: string | null } | null;
+  initials: string;
+  username: string | null | undefined;
+}
+
+function AppKitProfileDropdown({ user, initials, username }: DropdownProps) {
+  const { address, isConnected, disconnect } = useAppKitWallet();
+
+  const subtitle = isConnected && address
+    ? formatAddress(address)
+    : user?.email ?? null;
+
+  function handleDisconnect() {
+    disconnect();
+    toast.success("Wallet disconnected.");
+  }
+
+  return (
+    <>
+      {isConnected && address && (
+        <span className="hidden items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium text-muted-foreground sm:inline-flex">
+          <Wallet className="size-3" />
+          {formatAddress(address)}
+        </span>
+      )}
+
+      <ProfileDropdownMenu
+        user={user}
+        initials={initials}
+        username={username}
+        subtitle={subtitle}
+        isConnected={isConnected}
+        onDisconnect={handleDisconnect}
+      />
+    </>
+  );
+}
+
+function FallbackProfileDropdown({ user, initials, username }: DropdownProps) {
+  return (
+    <ProfileDropdownMenu
+      user={user}
+      initials={initials}
+      username={username}
+      subtitle={user?.email ?? null}
+      isConnected={false}
+      onDisconnect={undefined}
+    />
+  );
+}
+
+function ProfileDropdownMenu({
+  user,
+  initials,
+  username,
+  subtitle,
+  isConnected,
+  onDisconnect,
+}: DropdownProps & {
+  subtitle: string | null;
+  isConnected: boolean;
+  onDisconnect: (() => void) | undefined;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button variant="ghost" size="icon-sm" className="rounded-full" />
+        }
+      >
+        <Avatar size="sm">
+          <AvatarImage src={user?.image ?? undefined} alt={user?.name ?? "User"} />
+          <AvatarFallback>{initials}</AvatarFallback>
+        </Avatar>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>
+            <div className="flex flex-col">
+              <span className="font-medium">{user?.name || "Account"}</span>
+              {subtitle && (
+                <span className="truncate text-xs font-normal text-muted-foreground">
+                  {subtitle}
+                </span>
+              )}
+            </div>
+          </DropdownMenuLabel>
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem render={<Link href="/dashboard" />}>
+          <LayoutDashboard />
+          Dashboard
+        </DropdownMenuItem>
+        {username && (
+          <DropdownMenuItem render={<Link href={`/u/${username}`} />}>
+            <User />
+            Public Profile
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem render={<Link href="/dashboard/settings" />}>
+          <Settings />
+          Settings
+        </DropdownMenuItem>
+        {isConnected && onDisconnect && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={onDisconnect}>
+              <Unplug />
+              Disconnect Wallet
+            </DropdownMenuItem>
+          </>
+        )}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem variant="destructive" onClick={() => signOut({ callbackUrl: "/" })}>
+          <LogOut />
+          Sign out
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

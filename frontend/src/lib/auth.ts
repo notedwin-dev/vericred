@@ -63,6 +63,7 @@ export const authConfig: NextAuthConfig = {
         return {
           id: user.id,
           name: user.name,
+          username: user.username,
           email: user.email,
           image: user.image,
           role: user.role,
@@ -134,6 +135,7 @@ export const authConfig: NextAuthConfig = {
         return {
           id: user.id,
           name: user.name,
+          username: user.username,
           email: user.email,
           image: user.image,
           role: user.role,
@@ -146,6 +148,7 @@ export const authConfig: NextAuthConfig = {
     async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id as string;
+        token.username = (user as { username?: string | null }).username ?? null;
         token.role = (user as { role?: Role }).role ?? "USER";
         token.walletAddress = (user as { walletAddress?: string | null }).walletAddress ?? null;
       }
@@ -169,11 +172,13 @@ export const authConfig: NextAuthConfig = {
         if (now - lastRefresh >= REFRESH_TTL) {
           const dbUser = await prisma.user.findUnique({
             where: { id: token.id as string },
-            select: { role: true, walletAddress: true },
+            select: { role: true, username: true, walletAddress: true, image: true },
           });
           if (dbUser) {
             token.role = dbUser.role;
+            token.username = dbUser.username;
             token.walletAddress = dbUser.walletAddress;
+            token.picture = dbUser.image;
             token.lastRefresh = now;
           }
         }
@@ -184,8 +189,10 @@ export const authConfig: NextAuthConfig = {
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
+        session.user.username = (token.username as string | null) ?? null;
         session.user.role = (token.role as Role) ?? "USER";
         session.user.walletAddress = (token.walletAddress as string | null) ?? null;
+        if (token.picture) session.user.image = token.picture as string;
       }
       return session;
     },
