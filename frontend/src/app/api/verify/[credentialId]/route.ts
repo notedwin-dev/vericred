@@ -8,10 +8,12 @@ type RouteParams = { params: Promise<{ credentialId: string }> };
 /**
  * GET /api/verify/[credentialId]
  *
- * Public, unauthenticated verification endpoint. Calls the contract's
- * read-only `verifyCredential`, and enriches the result with whatever
- * off-chain metadata (recipient name, course, issuer) is available so a
- * verifier gets a full picture without needing to query IPFS themselves.
+ * Public, unauthenticated verification endpoint. A credential can exist
+ * off-chain only (issued without a recipient wallet, PDF already pinned to
+ * IPFS, waiting to be anchored — see lib/anchor.ts) — that's still a real,
+ * publicly viewable record, just not yet blockchain-verified. `exists`
+ * covers both cases; `onChain` distinguishes them so callers can show
+ * "pending" instead of treating an unanchored certificate as not found.
  */
 export async function GET(_request: NextRequest, { params }: RouteParams) {
   const { credentialId } = await params;
@@ -20,50 +22,68 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: "credentialId is required" }, { status: 400 });
   }
 
+  let onChain = false;
+  let valid = false;
+  let cid: string | undefined;
+  let issuer: string | undefined;
+  let issuedAt: number | undefined;
+
   try {
     const contract = getReadOnlyContract();
-    const result = await contract.verifyCredential(credentialId);
+    const [chainExists, chainValid, chainCid, chainIssuer, chainIssuedAt] =
+      await contract.verifyCredential(credentialId);
 
-    const [exists, valid, cid, issuer, issuedAt] = result;
-
-    if (!exists) {
-      return NextResponse.json({
-        exists: false,
-        valid: false,
-        credentialId,
-      });
+    if (chainExists) {
+      onChain = true;
+      valid = chainValid;
+      cid = chainCid;
+      issuer = chainIssuer;
+      issuedAt = Number(chainIssuedAt);
     }
-
-    const certificate = await prisma.certificate.findUnique({
-      where: { credentialId },
-      include: { course: { include: { issuer: true } } },
-    });
-
-    return NextResponse.json({
-      exists: true,
-      valid,
-      credentialId,
-      cid,
-      issuer,
-      issuedAt: Number(issuedAt),
-      certificate: certificate
-        ? {
-            recipientName: certificate.recipientName,
-            status: certificate.status,
-            expiresAt: certificate.expiresAt,
-            revokedAt: certificate.revokedAt,
-            revocationReason: certificate.revocationReason,
-            course: {
-              name: certificate.course.name,
-            },
-            issuer: {
-              organizationName: certificate.course.issuer.organizationName,
-            },
-          }
-        : null,
-    });
   } catch (error) {
-    console.error("Failed to verify credential:", error);
+    console.error("Failed to read on-chain verification:", error);
     return NextResponse.json({ error: parseContractError(error) }, { status: 500 });
   }
+
+  const certificate = await prisma.certificate.findUnique({
+    where: { credentialId },
+    include: { course: { include: { issuer: true } } },
+  });
+
+  if (!onChain && !certificate) {
+    return NextResponse.json({ exists: false, onChain: false, valid: false, credentialId });
+  }
+
+  if (!onChain && certificate) {
+    // Off-chain-only: the CID and issuance time come from our own record
+    // instead of the (nonexistent) on-chain one. No `issuer` wallet yet —
+    // there's nothing to attribute on-chain until this is anchored.
+    cid = certificate.cid ?? undefined;
+    issuedAt = Math.floor(certificate.issuedAt.getTime() / 1000);
+  }
+
+  return NextResponse.json({
+    exists: true,
+    onChain,
+    valid,
+    credentialId,
+    cid,
+    issuer,
+    issuedAt,
+    certificate: certificate
+      ? {
+          recipientName: certificate.recipientName,
+          status: certificate.status,
+          expiresAt: certificate.expiresAt,
+          revokedAt: certificate.revokedAt,
+          revocationReason: certificate.revocationReason,
+          course: {
+            name: certificate.course.name,
+          },
+          issuer: {
+            organizationName: certificate.course.issuer.organizationName,
+          },
+        }
+      : null,
+  });
 }
