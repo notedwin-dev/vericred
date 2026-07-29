@@ -50,10 +50,16 @@ async function upsertUser(params: {
   passwordHash: string;
   role: "ADMIN" | "ISSUER";
 }) {
-  const existing =
-    (await prisma.user.findUnique({ where: { walletAddress: params.wallet } })) ??
-    (await prisma.user.findUnique({ where: { email: params.email } }));
+  const byWallet = await prisma.user.findUnique({ where: { walletAddress: params.wallet } });
+  const byEmail = await prisma.user.findUnique({ where: { email: params.email } });
 
+  if (byWallet && byEmail && byWallet.id !== byEmail.id) {
+    throw new Error(
+      `Identity conflict: wallet ${params.wallet} is owned by user ${byWallet.id} but email ${params.email} is owned by different user ${byEmail.id}. Cannot merge conflicting identities.`
+    );
+  }
+
+  const existing = byWallet ?? byEmail;
   const data = {
     name: params.name,
     email: params.email,
@@ -158,6 +164,16 @@ async function main() {
       organizationName: "Asia Pacific University",
       walletAddress: ISSUER_WALLET,
     },
+    select: {
+      id: true,
+      userId: true,
+      organizationName: true,
+      logo: true,
+      walletAddress: true,
+      operatorAddress: true,
+      operatorKeyEnc: true,
+      createdAt: true,
+    },
   });
 
   if (!issuer.operatorAddress) {
@@ -185,9 +201,9 @@ async function main() {
   }
 
   console.log("\nSeeded:");
-  console.log(`  Admin  — ${admin.email} / ${ADMIN_PASSWORD}  (wallet ${ADMIN_WALLET})`);
+  console.log(`  Admin  — wallet ${ADMIN_WALLET}`);
   console.log(
-    `  Issuer — ${issuerUser.email} / ${ISSUER_PASSWORD}  (wallet ${ISSUER_WALLET}) — ${issuer.organizationName}`
+    `  Issuer — wallet ${ISSUER_WALLET} — ${issuer.organizationName}`
   );
   if (issuer.operatorAddress) {
     console.log(`  Issuer operator wallet — ${issuer.operatorAddress}`);

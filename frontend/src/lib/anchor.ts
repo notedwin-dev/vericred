@@ -1,4 +1,5 @@
 import type { Certificate, Issuer } from "@prisma/client";
+import { isAddress, ZeroAddress } from "ethers";
 import { prisma } from "@/lib/prisma";
 import { getSignerContract } from "@/lib/contract";
 import { getOperatorSigner } from "@/lib/operator-wallet";
@@ -26,19 +27,21 @@ async function resolveIssuer(courseId: string): Promise<Issuer | null> {
   return course?.issuer ?? null;
 }
 
-/** Anchors a single PENDING certificate that now has a wallet address. */
-export async function autoAnchorCertificate(certificate: AnchorableCertificate): Promise<boolean> {
-  if (!certificate.cid || !certificate.walletAddress) return false;
+/** Anchors a single PENDING certificate that now has a wallet address. Returns txHash if successful, null otherwise. */
+export async function autoAnchorCertificate(certificate: AnchorableCertificate): Promise<string | null> {
+  if (!certificate.cid || !certificate.walletAddress || !isAddress(certificate.walletAddress) || certificate.walletAddress === ZeroAddress) {
+    return null;
+  }
 
   const issuer = await resolveIssuer(certificate.courseId);
-  if (!issuer) return false;
+  if (!issuer) return null;
 
   const signer = getOperatorSigner(issuer);
   if (!signer) {
     console.warn(
       `[anchor] ${issuer.organizationName} has no operator wallet provisioned — leaving ${certificate.credentialId} PENDING.`
     );
-    return false;
+    return null;
   }
 
   try {
@@ -51,14 +54,27 @@ export async function autoAnchorCertificate(certificate: AnchorableCertificate):
     );
     const receipt = await tx.wait();
 
-    await prisma.certificate.update({
-      where: { id: certificate.id },
-      data: { status: "ACTIVE", txHash: receipt?.hash ?? tx.hash },
-    });
-    return true;
+    const txHash = receipt?.hash ?? tx.hash;
+    try {
+      await prisma.certificate.update({
+        where: { id: certificate.id },
+        data: { status: "ACTIVE", txHash },
+      });
+    } catch (dbError) {
+      console.error(`[anchor] On-chain anchoring succeeded (${txHash}) but DB update failed for ${certificate.credentialId}. Retrying once...`, dbError);
+      try {
+        await prisma.certificate.update({
+          where: { id: certificate.id },
+          data: { status: "ACTIVE", txHash },
+        });
+      } catch (retryError) {
+        console.error(`[anchor] DB update retry also failed for ${certificate.credentialId} (txHash ${txHash}). Manual recovery needed.`, retryError);
+      }
+    }
+    return txHash;
   } catch (error) {
     console.error(`[anchor] Failed to auto-anchor ${certificate.credentialId}:`, error);
-    return false;
+    return null;
   }
 }
 
@@ -70,7 +86,9 @@ export async function autoAnchorCertificate(certificate: AnchorableCertificate):
  * one transaction, since `issuer` on-chain is `msg.sender`.
  */
 export async function autoAnchorCertificates(certificates: AnchorableCertificate[]): Promise<boolean> {
-  const anchorable = certificates.filter((c) => c.cid && c.walletAddress);
+  const anchorable = certificates.filter(
+    (c) => c.cid && c.walletAddress && isAddress(c.walletAddress) && c.walletAddress !== ZeroAddress
+  );
   if (anchorable.length === 0) return false;
 
   const courseIds = [...new Set(anchorable.map((c) => c.courseId))];
@@ -109,10 +127,23 @@ export async function autoAnchorCertificates(certificates: AnchorableCertificate
       );
       const receipt = await tx.wait();
 
-      await prisma.certificate.updateMany({
-        where: { id: { in: certs.map((c) => c.id) } },
-        data: { status: "ACTIVE", txHash: receipt?.hash ?? tx.hash },
-      });
+      const txHash = receipt?.hash ?? tx.hash;
+      try {
+        await prisma.certificate.updateMany({
+          where: { id: { in: certs.map((c) => c.id) } },
+          data: { status: "ACTIVE", txHash },
+        });
+      } catch (dbError) {
+        console.error(`[anchor] On-chain batch anchoring succeeded (${txHash}) but DB update failed for ${certs.length} certificates. Retrying once...`, dbError);
+        try {
+          await prisma.certificate.updateMany({
+            where: { id: { in: certs.map((c) => c.id) } },
+            data: { status: "ACTIVE", txHash },
+          });
+        } catch (retryError) {
+          console.error(`[anchor] DB update retry also failed for batch of ${certs.length} (txHash ${txHash}). Manual recovery needed.`, retryError);
+        }
+      }
       anyAnchored = true;
     } catch (error) {
       console.error(`[anchor] Failed to auto-anchor batch of ${certs.length} for ${issuer.organizationName}:`, error);

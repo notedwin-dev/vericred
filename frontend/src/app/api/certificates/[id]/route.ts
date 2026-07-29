@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isAddress, ZeroAddress } from "ethers";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import type { RevokeCertificateInput, ConfirmAnchorInput } from "@/types";
@@ -69,7 +70,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
   const { id } = await params;
 
-  let body: RevokeCertificateInput & ConfirmAnchorInput;
+  let body: Partial<RevokeCertificateInput & ConfirmAnchorInput>;
   try {
     body = await request.json();
   } catch {
@@ -92,19 +93,23 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   }
 
   if (typeof body?.txHash === "string") {
-    if (!body.txHash.trim()) {
+    const txHash = body.txHash.trim();
+    if (!txHash) {
       return NextResponse.json({ error: "txHash is required" }, { status: 400 });
+    }
+    if (!/^0x[0-9a-fA-F]{64}$/.test(txHash)) {
+      return NextResponse.json({ error: "txHash must be a valid 32-byte hex hash (0x followed by 64 hex characters)" }, { status: 400 });
     }
     if (certificate.status !== "PENDING") {
       return NextResponse.json({ error: "Only a PENDING certificate can be confirmed as anchored" }, { status: 409 });
     }
-    if (!certificate.walletAddress) {
+    if (!certificate.walletAddress || !isAddress(certificate.walletAddress) || certificate.walletAddress === ZeroAddress) {
       return NextResponse.json({ error: "Certificate has no recipient wallet to anchor to" }, { status: 409 });
     }
 
     const updated = await prisma.certificate.update({
       where: { id },
-      data: { status: "ACTIVE", txHash: body.txHash.trim() },
+      data: { status: "ACTIVE", txHash },
     });
     return NextResponse.json({ certificate: updated });
   }

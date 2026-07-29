@@ -19,11 +19,22 @@ export function createOperatorWallet(): { address: string; operatorKeyEnc: strin
  * Decrypts an issuer's operator wallet into a connected signer, ready to
  * sign on-chain transactions attributed to that institution. Returns null
  * if the issuer has no operator wallet provisioned yet (e.g. it predates
- * this feature) — callers should treat that as "can't auto-anchor for
- * this issuer," not a hard error.
+ * this feature), or if the decrypted key doesn't match the stored address
+ * (data corruption / tampering) — callers should treat that as "can't
+ * auto-anchor for this issuer," not a hard error.
  */
 export function getOperatorSigner(issuer: Pick<Issuer, "operatorAddress" | "operatorKeyEnc">): Wallet | null {
   if (!issuer.operatorAddress || !issuer.operatorKeyEnc) return null;
+
   const provider = new JsonRpcProvider(RPC_URL);
-  return new Wallet(decrypt(issuer.operatorKeyEnc), provider);
+  const wallet = new Wallet(decrypt(issuer.operatorKeyEnc), provider);
+
+  if (wallet.address.toLowerCase() !== issuer.operatorAddress.toLowerCase()) {
+    console.error(
+      `[operator-wallet] Address mismatch for issuer: stored ${issuer.operatorAddress}, decrypted key derives ${wallet.address}. Refusing to use mismatched signer.`
+    );
+    return null;
+  }
+
+  return wallet;
 }
