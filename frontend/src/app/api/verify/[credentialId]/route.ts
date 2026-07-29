@@ -39,9 +39,11 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       include: { course: { include: { issuer: true } } },
     });
 
+    const combinedValid = valid && (certificate?.status !== "REVOKED");
+
     return NextResponse.json({
       exists: true,
-      valid,
+      valid: combinedValid,
       credentialId,
       cid,
       issuer,

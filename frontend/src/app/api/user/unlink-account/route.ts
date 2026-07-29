@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { RouteError } from "@/lib/route-error";
 
 /**
  * POST /api/user/unlink-account
@@ -73,12 +74,4 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json({ ok: true });
-}
-
-class RouteError extends Error {
-  status: number;
-  constructor(status: number, message: string) {
-    super(message);
-    this.status = status;
-  }
 }
