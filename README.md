@@ -101,11 +101,16 @@ Visit [http://localhost:3000](http://localhost:3000).
 # Root (Hardhat)
 npm run compile       # Compile contracts
 npm run test           # Run contract tests
+npm run node            # Start a local Hardhat node
+npm run deploy           # Deploy VeriCred.sol to localhost
+npm run seed              # Seed demo credentials
 
 # Frontend
 cd frontend
 node scripts/copy-config.js    # Copy contract config (auto-runs in dev, needed before build)
 npm run build                  # Production build
+npm run start                  # Start the production server (after npm run build)
+npm run lint                   # Run ESLint
 ```
 
 ### Import test accounts into MetaMask
@@ -185,4 +190,4 @@ MIT — see [LICENSE](./LICENSE).
 
 ## Team
 
-Group 14, APU — Module CT124-3-3-BCD (Blockchain Design and Development)
+Group 14, APU — Module CT124-3-3-BCD (Blockchain Development)

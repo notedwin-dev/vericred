@@ -50,28 +50,41 @@ NotAdmin, NotAuthorisedInstitution, NotIssuerOrAdmin, CredentialAlreadyExists, C
 
 - Next.js 15 (App Router), React 19, TypeScript
 - Tailwind CSS v4, shadcn/ui, lucide-react
-- Auth.js v5 (GitHub/Google/LinkedIn/email+password) + WalletConnect/SIWE
+- Auth.js v5 (GitHub/Google/LinkedIn/email+password) + @reown/appkit (WalletConnect) with SIWE
 - PostgreSQL + Prisma ORM
 - ethers.js v6 for contract interaction
 - @react-pdf/renderer for certificate PDFs
-- Pinata SDK for IPFS
+- Pinata SDK for IPFS (also used for profile avatar uploads)
+- SendGrid (`@sendgrid/mail`) for transactional email (email verification)
 - qrcode for QR codes
 
 ### Authentication Methods (in UI order)
 
-1. WalletConnect (primary, SIWE)
+1. WalletConnect via @reown/appkit (primary, SIWE) — the connected wallet address becomes `walletAddress`
 2. GitHub OAuth
 3. Google OAuth
 4. LinkedIn OAuth
-5. Email/password (auto-generates custody wallet)
+5. Email/password (credentials provider, bcrypt-hashed)
+
+Note: email/password signup does **not** currently generate a custody wallet — those users have no `walletAddress` until they separately connect one. The `custodyAddress`/`custodyKeyEnc` columns exist on `User` for this but nothing populates them yet.
+
+### User Identity & Account Linking
+
+- Users can set a `username` (enables a public profile at `/u/[username]`) and a profile picture (uploaded to IPFS via Pinata, see `/api/user/avatar`)
+- Wallet-first accounts (signed up via SIWE, no email) can add an email + password from `/dashboard/settings`. The address is staged in `pendingEmail` and only promoted to the real, unique `email` once the user clicks a SendGrid-emailed verification link (`/api/user/email` → `/api/user/email/verify`) — this stops a wallet user from squatting on someone else's address
+- Users can link additional OAuth providers to an already-authenticated account from Settings (`/api/user/link-intent` sets a signed cookie, then the normal `signIn(provider)` flow completes; the `signIn` callback in `lib/auth.ts` re-parents the resulting Account row onto the current user instead of creating a second one) and unlink one (blocked if it would leave the account with no remaining sign-in method)
+- If an OAuth sign-in's email collides with a different, unrelated existing account, Auth.js's built-in `OAuthAccountNotLinked` safety check fires — VeriCred does **not** auto-merge; the login page shows a message pointing the user to sign in with their original method and link the provider from Settings instead
 
 ### Key Routes
 
 - `/` — Landing (no navbar, sign-in + verify CTAs)
+- `/login`, `/register` — Sign in / sign up (both offer WalletConnect + GitHub/Google/LinkedIn + email/password)
 - `/verify`, `/verify/[credentialId]` — Public verification
 - `/c/[credentialId]` — Public credential page (Accredible-style)
+- `/u/[username]` — Public user profile
 - `/collect/[token]` — Collection link claim page
 - `/dashboard` — User credentials dashboard
+- `/dashboard/settings` — Profile, email/password, connected accounts, wallet
 - `/issuer` — Issuer panel (courses, templates, issue, collection links)
 - `/admin` — Admin panel (institutions, revocation)
 
@@ -95,7 +108,10 @@ npm run seed                 # Seed demo data
 cd frontend
 npm install                  # Install frontend deps
 npx prisma migrate dev       # Run DB migrations
-npm run dev                  # Start dev server (auto-copies contract config)
+npm run dev                  # Start dev server (auto-copies contract config via predev)
+npm run build                # Production build
+npm run start                # Start production server
+npm run lint                 # ESLint
 ```
 
 ## Demo Setup
@@ -135,10 +151,16 @@ GOOGLE_CLIENT_SECRET=<google-oauth-client-secret>
 LINKEDIN_CLIENT_ID=<linkedin-app-id>
 LINKEDIN_CLIENT_SECRET=<linkedin-app-secret>
 
-# IPFS (Pinata)
+# IPFS (Pinata) — also used for profile avatar uploads
 PINATA_API_KEY=<pinata-api-key>
 PINATA_SECRET_KEY=<pinata-secret-key>
 
-# WalletConnect
+# WalletConnect (via @reown/appkit)
 NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=<walletconnect-cloud-project-id>
+
+# Email (SendGrid) — sends the pendingEmail verification link.
+# If unset, the verification link is logged to the console instead so the
+# flow still works in local dev without a SendGrid account.
+SENDGRID_API_KEY=<sendgrid-api-key>
+SENDGRID_FROM_EMAIL=<verified-sender-email>
 ```
