@@ -16,6 +16,8 @@
     "@reown/appkit": "^1.8.23",
     "@reown/appkit-adapter-ethers": "^1.8.23",
     "@reown/appkit-siwe": "^1.8.23",
+    "@x402/core": "^2.20.0",
+    "@x402/evm": "^2.20.0",
     "bcrypt": "^6.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

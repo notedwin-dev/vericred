@@ -2,6 +2,7 @@
 
 import { getCsrfToken, getSession, signIn, signOut } from "next-auth/react";
 import { SiweMessage } from "siwe";
+import { getAddress } from "ethers";
 import {
   createSIWEConfig,
   type SIWECreateMessageArgs,
@@ -24,7 +25,7 @@ export const siweConfig = createSIWEConfig({
       version: "1",
       domain: window.location.host,
       uri: window.location.origin,
-      address,
+      address: getAddress(address),
       chainId,
       nonce,
       statement: STATEMENT,
