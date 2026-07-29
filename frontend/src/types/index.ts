@@ -135,6 +135,14 @@ export interface CreateCollectionLinkInput {
   certExpiresAt?: string;
 }
 
+/** Omitted fields are left unchanged; explicit `null` clears that field. */
+export interface UpdateCollectionLinkInput {
+  maxCollections?: number | null;
+  linkExpiresAt?: string | null;
+  certExpiresAt?: string | null;
+  active?: boolean;
+}
+
 export interface ClaimCollectionLinkInput {
   recipientName: string;
   recipientEmail?: string;
