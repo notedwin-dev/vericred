@@ -77,7 +77,7 @@ export const authConfig: NextAuthConfig = {
         message: { label: "Message", type: "text" },
         signature: { label: "Signature", type: "text" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         const message = credentials?.message;
         const signature = credentials?.signature;
 
@@ -92,8 +92,29 @@ export const authConfig: NextAuthConfig = {
           return null;
         }
 
+        // The client sets the SIWE nonce to getCsrfToken(), which is stored in
+        // the next-auth / authjs csrf-token cookie. Verify it server-side so
+        // replayed messages from other sessions are rejected. The CSRF token
+        // rotates after a successful sign-in, giving one-time-use semantics.
+        const cookieHeader = request.headers.get("cookie") ?? "";
+        const expectedNonce = cookieHeader
+          .split(";")
+          .map((c) => c.trim())
+          .reduce<string | undefined>((found, c) => {
+            if (found) return found;
+            const eq = c.indexOf("=");
+            if (eq === -1) return undefined;
+            if (c.slice(0, eq).endsWith("csrf-token"))
+              return decodeURIComponent(c.slice(eq + 1)).split("|")[0];
+            return undefined;
+          }, undefined);
+
+        if (!expectedNonce || siwe.nonce !== expectedNonce) {
+          return null;
+        }
+
         try {
-          const result = await siwe.verify({ signature, domain: NEXTAUTH_DOMAIN });
+          const result = await siwe.verify({ signature, domain: NEXTAUTH_DOMAIN, nonce: expectedNonce });
           if (!result.success) {
             return null;
           }
