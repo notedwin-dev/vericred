@@ -55,6 +55,12 @@ export interface CertificateDTO {
   revokedAt: string | null;
   revocationReason: string | null;
   createdAt: string;
+  course?: {
+    name: string;
+    issuer?: {
+      organizationName: string;
+    };
+  };
 }
 
 export interface IssueCertificateInput {

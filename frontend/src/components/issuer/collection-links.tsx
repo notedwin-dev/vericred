@@ -86,8 +86,16 @@ export function CollectionLinks({ courseId }: { courseId: string }) {
           certExpiresAt: certExpiresAt ? new Date(certExpiresAt).toISOString() : undefined,
         }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to create link");
+      if (!res.ok) {
+        let errorMessage = "Failed to create link";
+        try {
+          const data = await res.json();
+          errorMessage = data.error || errorMessage;
+        } catch {
+          // Non-JSON error response, use default message
+        }
+        throw new Error(errorMessage);
+      }
       toast.success("Collection link created.");
       reset();
       setOpen(false);

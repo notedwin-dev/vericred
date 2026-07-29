@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isAddress } from "ethers";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { generateCredentialId } from "@/lib/credential";
 import { generateCertificate } from "@/lib/generate-certificate";
 import { autoAnchorCertificate } from "@/lib/anchor";
+import { RouteError } from "@/lib/route-error";
 import type { ClaimCollectionLinkInput } from "@/types";
 
 type RouteParams = { params: Promise<{ token: string }> };
@@ -90,7 +92,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   }
 
   const recipientEmail = body?.recipientEmail || session.user.email || null;
-  const walletAddress = body?.walletAddress || session.user.walletAddress || null;
+
+  let walletAddress: string | null = null;
+  if (body?.walletAddress && isAddress(body.walletAddress)) {
+    walletAddress = body.walletAddress;
+  } else if (session.user.walletAddress && isAddress(session.user.walletAddress)) {
+    walletAddress = session.user.walletAddress;
+  }
 
   // Peek at the link so the certificate can be generated ahead of the
   // transaction (PDF rendering + IPFS pinning is too slow to hold a DB
@@ -174,9 +182,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     });
 
     if (walletAddress) {
-      const anchored = await autoAnchorCertificate(certificate);
-      if (anchored) {
+      const txHash = await autoAnchorCertificate(certificate);
+      if (txHash) {
         certificate.status = "ACTIVE";
+        certificate.txHash = txHash;
       }
     }
 
@@ -190,13 +199,5 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
     console.error("Failed to claim collection link:", error);
     return NextResponse.json({ error: "Failed to claim certificate" }, { status: 500 });
-  }
-}
-
-class RouteError extends Error {
-  status: number;
-  constructor(status: number, message: string) {
-    super(message);
-    this.status = status;
   }
 }

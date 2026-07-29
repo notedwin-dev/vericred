@@ -21,7 +21,6 @@ export const getPublicProfile = cache(async (username: string) => {
         select: {
           id: true,
           credentialId: true,
-          recipientName: true,
           status: true,
           issuedAt: true,
           expiresAt: true,

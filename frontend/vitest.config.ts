@@ -24,5 +24,10 @@ export default defineConfig({
     env: testEnv,
     // Table truncation between tests isn't safe to parallelize within a run.
     fileParallelism: false,
+    // Tests that issue certificates render a real PDF and pin it (mock CID
+    // in test env, but still real work) — comfortably under 5s normally,
+    // but tests that do it twice (e.g. claim-then-reclaim) can brush the
+    // default 5s timeout under load. Give real integration work headroom.
+    testTimeout: 15000,
   },
 });

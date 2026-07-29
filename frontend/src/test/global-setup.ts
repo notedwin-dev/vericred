@@ -15,6 +15,14 @@ export default async function globalSetup() {
   }
 
   const url = new URL(testUrl);
+
+  const allowedHosts = ["localhost", "127.0.0.1", "::1", "postgres", "db"];
+  if (!allowedHosts.includes(url.hostname)) {
+    throw new Error(
+      `Refusing to run tests against remote database host "${url.hostname}". Only local PostgreSQL hosts are allowed: ${allowedHosts.join(", ")}`
+    );
+  }
+
   const dbName = url.pathname.replace(/^\//, "");
   if (!dbName || dbName === "postgres") {
     throw new Error(

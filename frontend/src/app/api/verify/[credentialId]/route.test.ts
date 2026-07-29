@@ -93,11 +93,11 @@ describe("GET /api/verify/[credentialId]", () => {
     expect(data.certificate.recipientName).toBe("Ada Lovelace");
   });
 
-  it("reports valid:true from the chain even when the off-chain record is REVOKED", async () => {
-    // Documents a real gap: this route's `valid` comes only from the
-    // contract call, never cross-checked against Certificate.status. A
-    // certificate revoked off-chain but not yet revoked on-chain will still
-    // verify as valid until the on-chain revocation transaction lands.
+  it("reports valid:false when the off-chain record is REVOKED, even if the chain says valid", async () => {
+    // Tests the combined verification logic: a certificate revoked off-chain
+    // but not yet revoked on-chain should still be reported as invalid,
+    // since the off-chain DB status is the source of truth for revocations
+    // until the on-chain transaction lands.
     const { course } = await createIssuerWithCourse();
     const certificate = await prisma.certificate.create({
       data: {
@@ -120,7 +120,7 @@ describe("GET /api/verify/[credentialId]", () => {
     const data = await response.json();
 
     expect(data.onChain).toBe(true);
-    expect(data.valid).toBe(true);
+    expect(data.valid).toBe(false);
     expect(data.certificate.status).toBe("REVOKED");
   });
 });

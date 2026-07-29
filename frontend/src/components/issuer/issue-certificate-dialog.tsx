@@ -253,11 +253,29 @@ function CsvBatchIssueForm({
   async function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    const MAX_FILE_SIZE = 1024 * 1024; // 1 MB
+    const MAX_ROWS = 100;
+
+    if (file.size > MAX_FILE_SIZE) {
+      setParseErrors([`File is too large (${Math.round(file.size / 1024)} KB). Maximum file size is ${MAX_FILE_SIZE / 1024} KB.`]);
+      setRows([]);
+      setFileName(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
     setFileName(file.name);
     const text = await file.text();
     const parsed = parseRecipientCsv(text);
-    setRows(parsed.rows);
-    setParseErrors(parsed.errors);
+
+    if (parsed.rows.length > MAX_ROWS) {
+      setParseErrors([`Too many rows (${parsed.rows.length}). Maximum is ${MAX_ROWS} rows per batch.`]);
+      setRows([]);
+    } else {
+      setRows(parsed.rows);
+      setParseErrors(parsed.errors);
+    }
   }
 
   function reset() {
