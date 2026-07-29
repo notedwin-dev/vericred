@@ -24,4 +24,19 @@ describe("POST /api/courses/[id]/links", () => {
     expect(data.link.currentCount).toBe(0);
     expect(typeof data.link.token).toBe("string");
   });
+
+  it("rejects a different issuer trying to create a collection link for another issuer's course", async () => {
+    const { course } = await createIssuerWithCourse();
+    const { user: otherUser } = await createIssuerWithCourse();
+    mockAuthSession(auth, buildSession({ id: otherUser.id, role: "ISSUER" }));
+
+    const request = jsonRequest(`http://localhost/api/courses/${course.id}/links`, {
+      method: "POST",
+      body: { maxCollections: 5 },
+    });
+
+    const response = await POST(request, { params: Promise.resolve({ id: course.id }) });
+
+    expect(response.status).toBe(404);
+  });
 });

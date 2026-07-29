@@ -3,12 +3,15 @@
  * commas, newlines, and escaped `""` quotes). Good enough for the simple
  * three-column recipient sheets this app expects — not a general-purpose
  * CSV library.
+ *
+ * Returns rows with their original 1-based line numbers preserved.
  */
-export function parseCsv(text: string): string[][] {
-  const rows: string[][] = [];
+export function parseCsv(text: string): Array<{ lineNumber: number; cells: string[] }> {
+  const rows: Array<{ lineNumber: number; cells: string[] }> = [];
   let row: string[] = [];
   let field = "";
   let inQuotes = false;
+  let lineNumber = 1;
 
   for (let i = 0; i < text.length; i++) {
     const char = text[i];
@@ -35,9 +38,10 @@ export function parseCsv(text: string): string[][] {
     } else if (char === "\n" || char === "\r") {
       if (char === "\r" && text[i + 1] === "\n") i++;
       row.push(field);
-      rows.push(row);
+      rows.push({ lineNumber, cells: row });
       row = [];
       field = "";
+      lineNumber++;
     } else {
       field += char;
     }
@@ -45,10 +49,14 @@ export function parseCsv(text: string): string[][] {
 
   if (field.length > 0 || row.length > 0) {
     row.push(field);
-    rows.push(row);
+    rows.push({ lineNumber, cells: row });
   }
 
-  return rows.filter((r) => r.some((cell) => cell.trim() !== ""));
+  if (inQuotes) {
+    throw new Error("Unterminated quoted field");
+  }
+
+  return rows.filter((r) => r.cells.some((cell) => cell.trim() !== ""));
 }
 
 export interface ParsedRecipientRow {
@@ -77,12 +85,21 @@ const HEADER_ALIASES: Record<string, keyof ParsedRecipientRow> = {
  * against HEADER_ALIASES.
  */
 export function parseRecipientCsv(text: string): ParsedRecipientCsv {
-  const table = parseCsv(text);
+  let table: Array<{ lineNumber: number; cells: string[] }>;
+  try {
+    table = parseCsv(text);
+  } catch (error) {
+    if (error instanceof Error && error.message === "Unterminated quoted field") {
+      return { rows: [], errors: ["Unterminated quoted field — check for a stray \" in the file."] };
+    }
+    throw error;
+  }
+
   if (table.length === 0) {
     return { rows: [], errors: ["The file is empty."] };
   }
 
-  const header = table[0].map((h) => h.trim().toLowerCase());
+  const header = table[0].cells.map((h) => h.trim().toLowerCase());
   const columnIndex: Partial<Record<keyof ParsedRecipientRow, number>> = {};
   header.forEach((h, i) => {
     const key = HEADER_ALIASES[h];
@@ -97,10 +114,10 @@ export function parseRecipientCsv(text: string): ParsedRecipientCsv {
   const rows: ParsedRecipientRow[] = [];
 
   for (let i = 1; i < table.length; i++) {
-    const line = table[i];
+    const { lineNumber, cells: line } = table[i];
     const recipientName = line[columnIndex.recipientName]?.trim();
     if (!recipientName) {
-      errors.push(`Row ${i + 1}: missing name — skipped.`);
+      errors.push(`Row ${lineNumber}: missing name — skipped.`);
       continue;
     }
     const recipientEmail =

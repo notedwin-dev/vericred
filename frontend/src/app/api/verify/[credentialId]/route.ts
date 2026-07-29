@@ -62,10 +62,17 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     issuedAt = Math.floor(certificate.issuedAt.getTime() / 1000);
   }
 
+  // Cross-check against the off-chain record: a certificate revoked here
+  // but not yet revoked on-chain shouldn't report as valid just because
+  // the chain transaction hasn't landed yet — revocation, like anchoring,
+  // is fire-and-forget from the issuer's browser. (`valid` is already only
+  // ever true when `onChain` is, so no need to check both.)
+  const combinedValid = valid && certificate?.status !== "REVOKED";
+
   return NextResponse.json({
     exists: true,
     onChain,
-    valid,
+    valid: combinedValid,
     credentialId,
     cid,
     issuer,

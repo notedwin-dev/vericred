@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isAddress } from "ethers";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
@@ -57,6 +58,18 @@ export async function GET(request: NextRequest) {
 
   const certificates = await prisma.certificate.findMany({
     where,
+    include: {
+      course: {
+        select: {
+          name: true,
+          issuer: {
+            select: {
+              organizationName: true,
+            },
+          },
+        },
+      },
+    },
     orderBy: { createdAt: "desc" },
   });
 
@@ -96,6 +109,9 @@ export async function POST(request: NextRequest) {
   }
   if (!courseId || typeof courseId !== "string") {
     return NextResponse.json({ error: "courseId is required" }, { status: 400 });
+  }
+  if (walletAddress && !isAddress(walletAddress)) {
+    return NextResponse.json({ error: "walletAddress is not a valid Ethereum address" }, { status: 400 });
   }
 
   const course = await prisma.course.findUnique({
