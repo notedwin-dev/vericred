@@ -19,10 +19,14 @@ interface EthereumProvider {
   isMetaMask?: boolean;
 }
 
-declare global {
-  interface Window {
-    ethereum?: EthereumProvider;
-  }
+/**
+ * Cast rather than augment the global `Window` interface — `@reown/appkit-utils`
+ * already declares a (differently-shaped, non-optional) global `Window.ethereum`,
+ * and a second declaration with different modifiers is a TS2687 conflict.
+ */
+function getEthereum(): EthereumProvider | undefined {
+  if (typeof window === "undefined") return undefined;
+  return (window as unknown as { ethereum?: EthereumProvider }).ethereum;
 }
 
 interface Web3ContextValue {
@@ -44,8 +48,9 @@ const Web3Context = createContext<Web3ContextValue | undefined>(undefined);
 const DISCONNECT_KEY = "vericred:wallet-disconnected";
 
 function createProvider(): BrowserProvider | null {
-  if (typeof window !== "undefined" && window.ethereum) {
-    return new BrowserProvider(window.ethereum);
+  const ethereum = getEthereum();
+  if (ethereum) {
+    return new BrowserProvider(ethereum);
   }
   return null;
 }
@@ -58,19 +63,20 @@ export function Web3Provider({ children }: { children: ReactNode }) {
   const [hasProvider, setHasProvider] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== "undefined" && window.ethereum) {
+    if (getEthereum()) {
       setHasProvider(true);
       setProvider(createProvider());
     }
   }, []);
 
   const refresh = useCallback(async () => {
-    if (!window.ethereum) return;
+    const ethereum = getEthereum();
+    if (!ethereum) return;
     try {
-      const accounts = (await window.ethereum.request({
+      const accounts = (await ethereum.request({
         method: "eth_accounts",
       })) as string[];
-      const network = (await window.ethereum.request({
+      const network = (await ethereum.request({
         method: "eth_chainId",
       })) as string;
       setChainId(parseInt(network, 16));
@@ -81,7 +87,8 @@ export function Web3Provider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!window.ethereum) return;
+    const ethereum = getEthereum();
+    if (!ethereum) return;
     if (localStorage.getItem(DISCONNECT_KEY) !== "1") {
       refresh();
     }
@@ -96,22 +103,23 @@ export function Web3Provider({ children }: { children: ReactNode }) {
       setProvider(createProvider());
     };
 
-    window.ethereum.on("accountsChanged", handleAccountsChanged);
-    window.ethereum.on("chainChanged", handleChainChanged);
+    ethereum.on("accountsChanged", handleAccountsChanged);
+    ethereum.on("chainChanged", handleChainChanged);
 
     return () => {
-      window.ethereum?.removeListener("accountsChanged", handleAccountsChanged);
-      window.ethereum?.removeListener("chainChanged", handleChainChanged);
+      ethereum.removeListener("accountsChanged", handleAccountsChanged);
+      ethereum.removeListener("chainChanged", handleChainChanged);
     };
   }, [refresh]);
 
   const connect = useCallback(async (): Promise<string | null> => {
-    if (!window.ethereum) {
+    const ethereum = getEthereum();
+    if (!ethereum) {
       return null;
     }
     setIsConnecting(true);
     try {
-      const accounts = (await window.ethereum.request({
+      const accounts = (await ethereum.request({
         method: "eth_requestAccounts",
       })) as string[];
       localStorage.removeItem(DISCONNECT_KEY);
@@ -136,17 +144,18 @@ export function Web3Provider({ children }: { children: ReactNode }) {
   }, [provider]);
 
   const switchNetwork = useCallback(async () => {
-    if (!window.ethereum) return;
+    const ethereum = getEthereum();
+    if (!ethereum) return;
     const hexChainId = `0x${CHAIN_ID.toString(16)}`;
     try {
-      await window.ethereum.request({
+      await ethereum.request({
         method: "wallet_switchEthereumChain",
         params: [{ chainId: hexChainId }],
       });
     } catch (error) {
       const err = error as { code?: number };
       if (err?.code === 4902) {
-        await window.ethereum.request({
+        await ethereum.request({
           method: "wallet_addEthereumChain",
           params: [
             {
@@ -157,7 +166,7 @@ export function Web3Provider({ children }: { children: ReactNode }) {
             },
           ],
         });
-        await window.ethereum.request({
+        await ethereum.request({
           method: "wallet_switchEthereumChain",
           params: [{ chainId: hexChainId }],
         });

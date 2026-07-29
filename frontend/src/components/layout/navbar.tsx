@@ -65,6 +65,7 @@ export function Navbar() {
                 <Button
                   key={link.href}
                   render={<Link href={link.href} />}
+                  nativeButton={false}
                   variant="ghost"
                   size="sm"
                   className={cn(
@@ -83,6 +84,7 @@ export function Navbar() {
         <div className="flex items-center gap-2">
           <Button
             render={<Link href="/verify" />}
+            nativeButton={false}
             variant="ghost"
             size="icon-sm"
             className="hidden sm:inline-flex"

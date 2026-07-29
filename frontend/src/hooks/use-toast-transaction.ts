@@ -24,7 +24,7 @@ export function useToastTransaction() {
     async <T = ContractTransactionResponse | unknown>(
       fn: () => Promise<T>,
       options?: ToastTransactionOptions
-    ): Promise<T | null> => {
+    ): Promise<T> => {
       const toastId = toast.loading(options?.pending ?? "Waiting for confirmation...");
       setIsPending(true);
       try {

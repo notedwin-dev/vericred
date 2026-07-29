@@ -45,7 +45,7 @@ export default function CoursesPage() {
             Certificate programs your institution issues.
           </p>
         </div>
-        <Button render={<Link href="/issuer/courses/new" />} className="gap-1.5">
+        <Button render={<Link href="/issuer/courses/new" />} nativeButton={false} className="gap-1.5">
           <Plus className="size-4" />
           New Course
         </Button>
@@ -79,7 +79,7 @@ export default function CoursesPage() {
               Create a course to start issuing certificates.
             </p>
           </div>
-          <Button render={<Link href="/issuer/courses/new" />} size="sm" className="mt-1 gap-1.5">
+          <Button render={<Link href="/issuer/courses/new" />} nativeButton={false} size="sm" className="mt-1 gap-1.5">
             <Plus className="size-4" />
             New Course
           </Button>

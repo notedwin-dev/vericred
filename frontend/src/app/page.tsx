@@ -11,7 +11,7 @@ export default function Home() {
           <ShieldCheck className="size-5" />
           VeriCred
         </div>
-        <Button render={<Link href="/login" />} variant="outline">
+        <Button render={<Link href="/login" />} nativeButton={false} variant="outline">
           Sign In
         </Button>
       </header>
@@ -33,6 +33,7 @@ export default function Home() {
           <div className="mt-2 flex flex-col gap-3 sm:flex-row">
             <Button
               render={<Link href="/verify" />}
+              nativeButton={false}
               size="lg"
               className="h-11 gap-2 px-6 text-base"
             >
@@ -41,6 +42,7 @@ export default function Home() {
             </Button>
             <Button
               render={<Link href="/login" />}
+              nativeButton={false}
               size="lg"
               variant="outline"
               className="h-11 gap-2 px-6 text-base"

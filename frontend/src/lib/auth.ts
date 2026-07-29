@@ -6,8 +6,11 @@ import Google from "next-auth/providers/google";
 import LinkedIn from "next-auth/providers/linkedin";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcrypt";
+import { SiweMessage } from "siwe";
 import { prisma } from "@/lib/prisma";
 import type { Role } from "@/types";
+
+const NEXTAUTH_DOMAIN = process.env.NEXTAUTH_URL ? new URL(process.env.NEXTAUTH_URL).host : undefined;
 
 export const authConfig: NextAuthConfig = {
   adapter: PrismaAdapter(prisma),
@@ -55,6 +58,56 @@ export const authConfig: NextAuthConfig = {
         const isValid = await bcrypt.compare(password, user.passwordHash);
         if (!isValid) {
           return null;
+        }
+
+        return {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          image: user.image,
+          role: user.role,
+          walletAddress: user.walletAddress,
+        };
+      },
+    }),
+    Credentials({
+      id: "wallet",
+      name: "Ethereum",
+      credentials: {
+        message: { label: "Message", type: "text" },
+        signature: { label: "Signature", type: "text" },
+      },
+      async authorize(credentials) {
+        const message = credentials?.message;
+        const signature = credentials?.signature;
+
+        if (typeof message !== "string" || typeof signature !== "string" || !NEXTAUTH_DOMAIN) {
+          return null;
+        }
+
+        let siwe: SiweMessage;
+        try {
+          siwe = new SiweMessage(message);
+        } catch {
+          return null;
+        }
+
+        try {
+          const result = await siwe.verify({ signature, domain: NEXTAUTH_DOMAIN });
+          if (!result.success) {
+            return null;
+          }
+        } catch {
+          return null;
+        }
+
+        const walletAddress = siwe.address.toLowerCase();
+
+        let user = await prisma.user.findUnique({ where: { walletAddress } });
+        if (!user) {
+          user = await prisma.user.create({
+            data: { walletAddress, role: "USER" },
+          });
         }
 
         return {

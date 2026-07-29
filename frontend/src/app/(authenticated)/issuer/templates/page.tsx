@@ -46,7 +46,7 @@ export default function TemplatesPage() {
             Certificate layouts used when issuing credentials.
           </p>
         </div>
-        <Button render={<Link href="/issuer/templates/new" />} className="gap-1.5">
+        <Button render={<Link href="/issuer/templates/new" />} nativeButton={false} className="gap-1.5">
           <Plus className="size-4" />
           New Template
         </Button>
@@ -80,7 +80,7 @@ export default function TemplatesPage() {
               Create a template before setting up a course.
             </p>
           </div>
-          <Button render={<Link href="/issuer/templates/new" />} size="sm" className="mt-1 gap-1.5">
+          <Button render={<Link href="/issuer/templates/new" />} nativeButton={false} size="sm" className="mt-1 gap-1.5">
             <Plus className="size-4" />
             New Template
           </Button>
