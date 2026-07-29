@@ -151,16 +151,24 @@ export default function PublicCredentialPage({
                 <h2 className="flex items-center gap-1.5 text-sm font-medium">
                   <Blocks className="size-4" /> Blockchain record
                 </h2>
-                <dl className="grid gap-3 rounded-lg bg-muted/50 p-4 text-sm sm:grid-cols-2">
-                  <div>
-                    <dt className="text-xs text-muted-foreground">Contract Address</dt>
-                    <dd className="font-mono">{formatAddress(CONTRACT_ADDRESS)}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs text-muted-foreground">Issuer Wallet</dt>
-                    <dd className="font-mono">{formatAddress(result.issuer)}</dd>
-                  </div>
-                </dl>
+                {result.onChain ? (
+                  <dl className="grid gap-3 rounded-lg bg-muted/50 p-4 text-sm sm:grid-cols-2">
+                    <div>
+                      <dt className="text-xs text-muted-foreground">Contract Address</dt>
+                      <dd className="font-mono">{formatAddress(CONTRACT_ADDRESS)}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-muted-foreground">Issuer Wallet</dt>
+                      <dd className="font-mono">{formatAddress(result.issuer)}</dd>
+                    </div>
+                  </dl>
+                ) : (
+                  <p className="rounded-lg bg-muted/50 p-4 text-sm text-muted-foreground">
+                    Not yet anchored on-chain. This certificate&apos;s PDF is already pinned to
+                    IPFS — the fingerprint below won&apos;t change — but blockchain verification
+                    completes once the recipient links a wallet.
+                  </p>
+                )}
                 {result.cid && (
                   <a
                     href={`https://ipfs.io/ipfs/${result.cid}`}

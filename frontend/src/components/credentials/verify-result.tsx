@@ -23,7 +23,7 @@ function resolveStatus(result: VerifyApiResult): DisplayStatus {
     return "EXPIRED";
   }
   if (cert?.status === "REVOKED" || cert?.revokedAt) return "REVOKED";
-  if (cert?.status === "PENDING") return "PENDING";
+  if (!result.onChain) return "PENDING";
   return "EXPIRED";
 }
 
@@ -106,6 +106,14 @@ export function VerifyResult({ result }: { result: VerifyApiResult }) {
         <CardContent className="flex flex-col gap-4">
           <Separator />
 
+          {status === "PENDING" && (
+            <p className="rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
+              This certificate has been issued and its PDF is pinned to IPFS — untamperable
+              from this point on — but it isn&apos;t blockchain-verified yet. The recipient
+              completes that step by linking a wallet, which anchors it on-chain.
+            </p>
+          )}
+
           <dl className="grid gap-4 sm:grid-cols-2">
             {cert && (
               <div>
@@ -125,10 +133,12 @@ export function VerifyResult({ result }: { result: VerifyApiResult }) {
                 <dd className="text-sm">{cert.issuer.organizationName}</dd>
               </div>
             )}
-            <div>
-              <dt className="text-xs font-medium text-muted-foreground">Issuer Wallet</dt>
-              <dd className="font-mono text-sm">{formatAddress(result.issuer)}</dd>
-            </div>
+            {result.onChain && (
+              <div>
+                <dt className="text-xs font-medium text-muted-foreground">Issuer Wallet</dt>
+                <dd className="font-mono text-sm">{formatAddress(result.issuer)}</dd>
+              </div>
+            )}
             <div>
               <dt className="text-xs font-medium text-muted-foreground">Issued</dt>
               <dd className="text-sm">{formatTimestamp(result.issuedAt)}</dd>
