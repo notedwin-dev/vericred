@@ -50,6 +50,25 @@ function LoginForm() {
     }
   }, [status, callbackUrl, router]);
 
+  useEffect(() => {
+    const error = searchParams.get("error");
+    if (!error) return;
+
+    if (error === "OAuthAccountNotLinked") {
+      toast.error(
+        "That email is already used by an existing VeriCred account. Sign in with your original method, then link this provider from Settings.",
+        { duration: 8000 }
+      );
+    } else if (error === "AccountAlreadyLinked") {
+      toast.error("That account is already linked to a different VeriCred account.");
+    } else {
+      toast.error("Sign in failed. Please try again.");
+    }
+    const params = new URLSearchParams(searchParams);
+    params.delete("error");
+    router.replace(params.size ? `/login?${params}` : "/login");
+  }, [searchParams, router]);
+
   async function handleCredentialsSubmit(e: FormEvent) {
     e.preventDefault();
     setIsSubmitting(true);

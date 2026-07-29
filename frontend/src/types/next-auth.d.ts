@@ -8,6 +8,7 @@ declare module "next-auth" {
       username: string | null;
       role: Role;
       walletAddress: string | null;
+      pendingEmail: string | null;
     } & DefaultSession["user"];
   }
 
@@ -15,6 +16,7 @@ declare module "next-auth" {
     username?: string | null;
     role?: Role;
     walletAddress?: string | null;
+    pendingEmail?: string | null;
   }
 }
 
@@ -24,5 +26,6 @@ declare module "next-auth/jwt" {
     username?: string | null;
     role?: Role;
     walletAddress?: string | null;
+    pendingEmail?: string | null;
   }
 }

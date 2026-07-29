@@ -26,6 +26,7 @@ model User {
   username        String?   @unique
   email           String?   @unique
   emailVerified   DateTime?
+  pendingEmail    String?
   image           String?
   passwordHash    String?
   walletAddress   String?   @unique

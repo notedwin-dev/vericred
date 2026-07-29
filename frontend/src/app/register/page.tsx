@@ -4,12 +4,17 @@ import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
+import { useAppKit } from "@reown/appkit/react";
 import { toast } from "sonner";
-import { ShieldCheck, Loader2 } from "lucide-react";
+import { ShieldCheck, Wallet, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { GitHubIcon, GoogleIcon, LinkedInIcon } from "@/components/icons/brand-icons";
+
+const WALLETCONNECT_CONFIGURED = Boolean(process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID);
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -17,6 +22,12 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState<string | null>(null);
+
+  function handleOAuth(provider: "github" | "google" | "linkedin") {
+    setOauthLoading(provider);
+    signIn(provider, { callbackUrl: "/dashboard" });
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -65,6 +76,79 @@ export default function RegisterPage() {
             <p className="text-sm text-muted-foreground">
               Get started tracking and sharing your credentials.
             </p>
+          </div>
+
+          {WALLETCONNECT_CONFIGURED ? (
+            <WalletConnectButton />
+          ) : (
+            <Button
+              type="button"
+              size="lg"
+              className="h-11 w-full gap-2 bg-indigo-600 text-white hover:bg-indigo-600/90 dark:bg-indigo-500 dark:hover:bg-indigo-500/90"
+              onClick={() =>
+                toast.info("WalletConnect is not configured. Set NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID in .env.local.")
+              }
+            >
+              <Wallet className="size-4" />
+              Continue with WalletConnect
+            </Button>
+          )}
+
+          <div className="flex items-center gap-3">
+            <Separator className="flex-1" />
+            <span className="text-xs text-muted-foreground">or continue with</span>
+            <Separator className="flex-1" />
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 gap-0"
+              disabled={!!oauthLoading}
+              onClick={() => handleOAuth("github")}
+              aria-label="Continue with GitHub"
+            >
+              {oauthLoading === "github" ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <GitHubIcon className="size-4" />
+              )}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 gap-0"
+              disabled={!!oauthLoading}
+              onClick={() => handleOAuth("google")}
+              aria-label="Continue with Google"
+            >
+              {oauthLoading === "google" ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <GoogleIcon className="size-4" />
+              )}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 gap-0"
+              disabled={!!oauthLoading}
+              onClick={() => handleOAuth("linkedin")}
+              aria-label="Continue with LinkedIn"
+            >
+              {oauthLoading === "linkedin" ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <LinkedInIcon className="size-4" />
+              )}
+            </Button>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Separator className="flex-1" />
+            <span className="text-xs text-muted-foreground">or email</span>
+            <Separator className="flex-1" />
           </div>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-3">
@@ -116,5 +200,38 @@ export default function RegisterPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+/**
+ * Split out because `useAppKit` throws if `createAppKit` was never called —
+ * this component only mounts when NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID is set.
+ */
+function WalletConnectButton() {
+  const { open } = useAppKit();
+  const [loading, setLoading] = useState(false);
+
+  async function handleClick() {
+    setLoading(true);
+    try {
+      await open();
+    } catch {
+      toast.error("Failed to open WalletConnect modal.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Button
+      type="button"
+      size="lg"
+      className="h-11 w-full gap-2 bg-indigo-600 text-white hover:bg-indigo-600/90 dark:bg-indigo-500 dark:hover:bg-indigo-500/90"
+      onClick={handleClick}
+      disabled={loading}
+    >
+      {loading ? <Loader2 className="size-4 animate-spin" /> : <Wallet className="size-4" />}
+      Continue with WalletConnect
+    </Button>
   );
 }

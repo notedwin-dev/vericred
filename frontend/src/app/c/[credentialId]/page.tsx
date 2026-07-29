@@ -15,6 +15,7 @@ import { Separator } from "@/components/ui/separator";
 import { StatusBadge } from "@/components/credentials/status-badge";
 import { CredentialQr } from "@/components/credentials/credential-qr";
 import { LinkedInIcon } from "@/components/icons/brand-icons";
+import { PublicAuthAction } from "@/components/layout/public-auth-action";
 import { useCredential } from "@/hooks/use-credential";
 import { formatAddress, formatTimestamp } from "@/lib/utils";
 import { CONTRACT_ADDRESS } from "@/lib/config";
@@ -48,12 +49,7 @@ export default function PublicCredentialPage({
           <ShieldCheck className="size-5" />
           VeriCred
         </Link>
-        <Link
-          href="/login"
-          className="text-sm font-medium text-muted-foreground hover:text-foreground"
-        >
-          Sign In
-        </Link>
+        <PublicAuthAction />
       </header>
 
       <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-6 py-10 sm:px-10">
