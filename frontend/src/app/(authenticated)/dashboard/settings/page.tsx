@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn, useSession } from "next-auth/react";
 import { toast } from "sonner";
@@ -157,6 +157,17 @@ function SettingsPageInner() {
     }
   }
 
+  const refreshWalletStatus = useCallback(async () => {
+    try {
+      const res = await fetch("/api/user/profile");
+      if (!res.ok) return;
+      const data = await res.json();
+      setProfile((prev) => (prev ? { ...prev, ...data.user } : data.user));
+    } catch {
+      // best-effort — the wallet section falls back to its own connection state
+    }
+  }, []);
+
   const initials = (profile?.name || profile?.email || "?").slice(0, 2).toUpperCase();
   const isWalletFirst = Boolean(profile?.walletAddress) && !profile?.email;
 
@@ -290,7 +301,10 @@ function SettingsPageInner() {
           <h2 className="font-medium">Wallet</h2>
           <Separator />
           {WALLETCONNECT_CONFIGURED ? (
-            <AppKitWalletSection linkedWallet={profile?.walletAddress ?? null} />
+            <AppKitWalletSection
+              linkedWallet={profile?.walletAddress ?? null}
+              onWalletConnected={refreshWalletStatus}
+            />
           ) : (
             <StaticWalletSection linkedWallet={profile?.walletAddress ?? null} />
           )}
@@ -481,8 +495,21 @@ function ConnectedAccountsSection({
   );
 }
 
-function AppKitWalletSection({ linkedWallet }: { linkedWallet: string | null }) {
+function AppKitWalletSection({
+  linkedWallet,
+  onWalletConnected,
+}: {
+  linkedWallet: string | null;
+  onWalletConnected: () => void;
+}) {
   const { address, isConnected, openModal, disconnect } = useAppKitWallet();
+
+  // The AppKit modal drives its own SIWE sign-in/link flow internally (see
+  // lib/siwe-config.ts) — once it reports a connected address, that flow has
+  // already resolved, so refresh the profile to pick up the newly linked wallet.
+  useEffect(() => {
+    if (isConnected && address) onWalletConnected();
+  }, [isConnected, address, onWalletConnected]);
 
   async function handleConnect() {
     try {

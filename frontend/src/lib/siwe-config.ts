@@ -50,6 +50,23 @@ export const siweConfig = createSIWEConfig({
   },
   verifyMessage: async ({ message, signature }: SIWEVerifyMessageArgs) => {
     try {
+      // If the browser already has an authenticated session, treat this
+      // wallet connection as linking it to the current account (mirrors
+      // the OAuth "link an additional provider" flow) rather than as a
+      // sign-in — otherwise NextAuth's credentials flow below would
+      // establish a brand-new session for whatever user the wallet
+      // resolves to, silently swapping out the logged-in identity.
+      const session = await getSession();
+      if (session?.user?.id) {
+        const siwe = new SiweMessage(message);
+        const res = await fetch("/api/wallet/link", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ address: siwe.address, message, signature }),
+        });
+        return res.ok;
+      }
+
       const result = await signIn("wallet", {
         message,
         signature,

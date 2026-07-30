@@ -15,6 +15,11 @@ enum Role {
 
 enum CertificateStatus {
   PENDING
+  /// Recipient has confirmed ownership (issued to their account's email,
+  /// they claimed it from their dashboard) but it isn't anchored on-chain
+  /// yet — no wallet was available at claim time, or anchoring failed.
+  /// Distinct from PENDING, which means nobody has claimed it at all.
+  CLAIMED
   ACTIVE
   REVOKED
   EXPIRED

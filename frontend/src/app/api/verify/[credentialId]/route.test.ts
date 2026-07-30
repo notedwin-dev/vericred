@@ -23,6 +23,7 @@ describe("GET /api/verify/[credentialId]", () => {
         recipientName: "Ada Lovelace",
         courseId: course.id,
         status: "ACTIVE",
+        txHash: "0xdeadbeef",
       },
     });
 
@@ -40,6 +41,7 @@ describe("GET /api/verify/[credentialId]", () => {
     expect(data.onChain).toBe(true);
     expect(data.valid).toBe(true);
     expect(data.cid).toBe("bafy-test-cid");
+    expect(data.txHash).toBe("0xdeadbeef");
     expect(data.certificate.recipientName).toBe("Ada Lovelace");
     expect(data.certificate.course.name).toBe(course.name);
   });

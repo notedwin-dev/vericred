@@ -9,7 +9,7 @@
 
 export type Role = "USER" | "ISSUER" | "ADMIN";
 
-export type CertificateStatus = "PENDING" | "ACTIVE" | "REVOKED" | "EXPIRED";
+export type CertificateStatus = "PENDING" | "CLAIMED" | "ACTIVE" | "REVOKED" | "EXPIRED";
 
 // ── On-chain data ────────────────────────────────────────────────────
 

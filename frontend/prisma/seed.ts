@@ -4,17 +4,22 @@
  *
  *   npx prisma db seed
  *
- * The wallet addresses used here are derived from the standard Hardhat
- * test private keys documented in CLAUDE.md (Account #0 / #1) — the same
- * accounts `scripts/deploy.js` sets up as admin/authorised-institution
- * on-chain, so signing in with either MetaMask account lands on the
- * matching DB user instead of creating a new one.
+ * Both are email/password accounts only — deliberately **not** tied to a
+ * login wallet. An earlier version of this script matched existing users
+ * by wallet address and would silently overwrite whichever account it
+ * found (including a real tester's own SIWE-created account) with the
+ * seed identity and an elevated role. Matching by wallet also meant that
+ * later signing in with the same wallet (e.g. Hardhat's well-known
+ * Account #0/#1 — exactly what a developer would naturally use to test
+ * "regular user connects a wallet") landed on the seeded admin/issuer
+ * identity instead of a fresh account. Matching *only* by this script's
+ * own dedicated email avoids both: it only ever touches the one row it's
+ * responsible for, never a pre-existing account, and never claims a
+ * wallet a real sign-in could collide with.
  *
- * Idempotent: if a user already exists with the target wallet address
- * (e.g. from a prior SIWE sign-in during testing) or email, that row is
- * promoted/updated in place rather than creating a duplicate. The
- * issuer's operator wallet (see lib/operator-wallet.ts) is generated once
- * and reused on subsequent runs, not regenerated.
+ * Idempotent: safe to re-run, updates the same email-matched row rather
+ * than creating a duplicate. The issuer's operator wallet (see
+ * lib/operator-wallet.ts) is generated once and reused, not regenerated.
  */
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcrypt";
@@ -25,12 +30,14 @@ import { RPC_URL } from "@/lib/config";
 
 const prisma = new PrismaClient();
 
-const ADMIN_WALLET = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266".toLowerCase(); // Hardhat Account #0
-const ISSUER_WALLET = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8".toLowerCase(); // Hardhat Account #1
+// The Issuer's *organisation* on-chain identity (Issuer.walletAddress) —
+// distinct from any User's login wallet. This is what gets authorised as
+// an institution and shown as `issuer` on anchored credentials.
+const ISSUER_ORG_WALLET = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8".toLowerCase(); // Hardhat Account #1
 // Known only because it's a public Hardhat test key, not a real secret — a
 // real institution funds its own operator wallet from its own connected
 // wallet client-side; the platform never holds a real issuer's private key.
-const ISSUER_PRIVATE_KEY_HARDHAT = "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
+const ISSUER_FUNDING_PRIVATE_KEY = "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
 
 const ADMIN_EMAIL = "admin@vericred.local";
 const ADMIN_PASSWORD = "Admin@12345";
@@ -38,40 +45,20 @@ const ADMIN_PASSWORD = "Admin@12345";
 const ISSUER_EMAIL = "issuer@apu.edu.my";
 const ISSUER_PASSWORD = "Issuer@12345";
 
-/**
- * Finds an existing user by wallet address first (a prior SIWE sign-in may
- * already have created a bare USER row for this wallet), falling back to
- * email, then updates or creates as appropriate.
- */
-async function upsertUser(params: {
-  wallet: string;
+/** Matches strictly by this script's own dedicated email — never by wallet, never a pre-existing account it didn't create. */
+async function upsertSeedUser(params: {
   email: string;
   name: string;
   passwordHash: string;
   role: "ADMIN" | "ISSUER";
 }) {
-  const byWallet = await prisma.user.findUnique({ where: { walletAddress: params.wallet } });
-  const byEmail = await prisma.user.findUnique({ where: { email: params.email } });
-
-  if (byWallet && byEmail && byWallet.id !== byEmail.id) {
-    throw new Error(
-      `Identity conflict: wallet ${params.wallet} is owned by user ${byWallet.id} but email ${params.email} is owned by different user ${byEmail.id}. Cannot merge conflicting identities.`
-    );
-  }
-
-  const existing = byWallet ?? byEmail;
-  const data = {
-    name: params.name,
-    email: params.email,
-    passwordHash: params.passwordHash,
-    walletAddress: params.wallet,
-    role: params.role,
-  };
+  const existing = await prisma.user.findUnique({ where: { email: params.email } });
+  const data = { name: params.name, passwordHash: params.passwordHash, role: params.role };
 
   if (existing) {
     return prisma.user.update({ where: { id: existing.id }, data });
   }
-  return prisma.user.create({ data });
+  return prisma.user.create({ data: { ...data, email: params.email } });
 }
 
 const OPERATOR_FUNDING_AMOUNT = parseEther("1.0");
@@ -92,7 +79,7 @@ const OPERATOR_FUNDING_THRESHOLD = parseEther("0.1"); // top up if balance drops
  */
 async function tryFundOperatorWallet(operatorAddress: string) {
   const provider = new JsonRpcProvider(RPC_URL);
-  const issuerFunder = new Wallet(ISSUER_PRIVATE_KEY_HARDHAT, provider);
+  const issuerFunder = new Wallet(ISSUER_FUNDING_PRIVATE_KEY, provider);
 
   try {
     const balance = await provider.getBalance(operatorAddress);
@@ -140,16 +127,14 @@ async function tryAuthoriseOperatorOnChain(operatorAddress: string) {
 }
 
 async function main() {
-  const admin = await upsertUser({
-    wallet: ADMIN_WALLET,
+  const admin = await upsertSeedUser({
     email: ADMIN_EMAIL,
     name: "VeriCred Admin",
     passwordHash: await bcrypt.hash(ADMIN_PASSWORD, 12),
     role: "ADMIN",
   });
 
-  const issuerUser = await upsertUser({
-    wallet: ISSUER_WALLET,
+  const issuerUser = await upsertSeedUser({
     email: ISSUER_EMAIL,
     name: "Asia Pacific University Registry",
     passwordHash: await bcrypt.hash(ISSUER_PASSWORD, 12),
@@ -158,11 +143,11 @@ async function main() {
 
   let issuer = await prisma.issuer.upsert({
     where: { userId: issuerUser.id },
-    update: { organizationName: "Asia Pacific University", walletAddress: ISSUER_WALLET },
+    update: { organizationName: "Asia Pacific University", walletAddress: ISSUER_ORG_WALLET },
     create: {
       userId: issuerUser.id,
       organizationName: "Asia Pacific University",
-      walletAddress: ISSUER_WALLET,
+      walletAddress: ISSUER_ORG_WALLET,
     },
     select: {
       id: true,
@@ -200,11 +185,10 @@ async function main() {
     await tryAuthoriseOperatorOnChain(issuer.operatorAddress);
   }
 
-  console.log("\nSeeded:");
-  console.log(`  Admin  — ${admin.email} / ${ADMIN_PASSWORD}  (wallet ${ADMIN_WALLET})`);
-  console.log(
-    `  Issuer — ${issuerUser.email} / ${ISSUER_PASSWORD}  (wallet ${ISSUER_WALLET}) — ${issuer.organizationName}`
-  );
+  console.log("\nSeeded (email/password only — neither account has a login wallet):");
+  console.log(`  Admin  — ${admin.email} / ${ADMIN_PASSWORD}`);
+  console.log(`  Issuer — ${issuerUser.email} / ${ISSUER_PASSWORD} — ${issuer.organizationName}`);
+  console.log(`  Issuer org wallet (on-chain identity, not a login method) — ${issuer.walletAddress}`);
   if (issuer.operatorAddress) {
     console.log(`  Issuer operator wallet — ${issuer.operatorAddress}`);
   }

@@ -4,21 +4,22 @@ import Link from "next/link";
 import { use } from "react";
 import {
   ShieldCheck,
-  ExternalLink,
   Loader2,
   ArrowLeft,
   Blocks,
+  ExternalLink,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { StatusBadge } from "@/components/credentials/status-badge";
 import { CredentialQr } from "@/components/credentials/credential-qr";
+import { CertificatePreview } from "@/components/credentials/certificate-preview";
 import { LinkedInIcon } from "@/components/icons/brand-icons";
 import { PublicAuthAction } from "@/components/layout/public-auth-action";
 import { useCredential } from "@/hooks/use-credential";
 import { formatAddress, formatTimestamp } from "@/lib/utils";
-import { CONTRACT_ADDRESS } from "@/lib/config";
+import { CONTRACT_ADDRESS, getExplorerTxUrl } from "@/lib/config";
 
 export default function PublicCredentialPage({
   params,
@@ -33,6 +34,8 @@ export default function PublicCredentialPage({
     typeof window !== "undefined"
       ? `${window.location.origin}/verify/${encodeURIComponent(decodedId)}`
       : `/verify/${encodeURIComponent(decodedId)}`;
+
+  const explorerUrl = result?.txHash ? getExplorerTxUrl(result.txHash) : null;
 
   const linkedInUrl = result?.certificate
     ? `https://www.linkedin.com/profile/add?startTask=CERTIFICATION_NAME&name=${encodeURIComponent(
@@ -145,6 +148,16 @@ export default function PublicCredentialPage({
                 </div>
               </div>
 
+              {result.cid && (
+                <>
+                  <Separator />
+                  <div className="flex flex-col gap-3">
+                    <h2 className="text-sm font-medium">Certificate Document</h2>
+                    <CertificatePreview cid={result.cid} />
+                  </div>
+                </>
+              )}
+
               <Separator />
 
               <div className="flex flex-col gap-3">
@@ -152,32 +165,36 @@ export default function PublicCredentialPage({
                   <Blocks className="size-4" /> Blockchain record
                 </h2>
                 {result.onChain ? (
-                  <dl className="grid gap-3 rounded-lg bg-muted/50 p-4 text-sm sm:grid-cols-2">
-                    <div>
-                      <dt className="text-xs text-muted-foreground">Contract Address</dt>
-                      <dd className="font-mono">{formatAddress(CONTRACT_ADDRESS)}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-xs text-muted-foreground">Issuer Wallet</dt>
-                      <dd className="font-mono">{formatAddress(result.issuer)}</dd>
-                    </div>
-                  </dl>
+                  <div className="flex flex-col gap-3">
+                    <dl className="grid gap-3 rounded-lg bg-muted/50 p-4 text-sm sm:grid-cols-2">
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Contract Address</dt>
+                        <dd className="font-mono">{formatAddress(CONTRACT_ADDRESS)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Issuer Wallet</dt>
+                        <dd className="font-mono">{formatAddress(result.issuer)}</dd>
+                      </div>
+                    </dl>
+                    {explorerUrl && (
+                      <Button
+                        render={<a href={explorerUrl} target="_blank" rel="noreferrer" />}
+                        nativeButton={false}
+                        variant="outline"
+                        size="sm"
+                        className="w-fit gap-1.5"
+                      >
+                        <ExternalLink className="size-3.5" />
+                        View on Blockchain Explorer
+                      </Button>
+                    )}
+                  </div>
                 ) : (
                   <p className="rounded-lg bg-muted/50 p-4 text-sm text-muted-foreground">
-                    Not yet anchored on-chain. This certificate&apos;s PDF is already pinned to
-                    IPFS — the fingerprint below won&apos;t change — but blockchain verification
-                    completes once the recipient links a wallet.
+                    {result.certificate?.status === "CLAIMED"
+                      ? "Not yet anchored on-chain. The recipient has claimed this certificate — their account and email are confirmed — but blockchain verification completes once they link a wallet."
+                      : "Not yet anchored on-chain. This certificate's PDF is already pinned to IPFS — the fingerprint above won't change — but nobody has claimed it yet. Blockchain verification completes once the recipient signs in and claims it."}
                   </p>
-                )}
-                {result.cid && (
-                  <a
-                    href={`https://ipfs.io/ipfs/${result.cid}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex w-fit items-center gap-1 text-sm font-medium text-primary hover:underline"
-                  >
-                    View source document on IPFS <ExternalLink className="size-3.5" />
-                  </a>
                 )}
               </div>
 

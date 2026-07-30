@@ -13,9 +13,12 @@ import { autoAnchorCertificates } from "@/lib/anchor";
  * claimed address so the user proves ownership of the wallet before it's
  * attached — otherwise the address is stored unverified.
  *
- * Also retroactively anchors any of this user's PENDING certificates that
- * were issued without a wallet (matched by recipientEmail, since that's
- * the only link between a not-yet-claimed certificate and an account) —
+ * Also retroactively anchors any of this user's certificates that were
+ * left without a wallet: unclaimed PENDING ones issued straight to their
+ * email (matched by recipientEmail, since nothing ties them to the
+ * account yet), and already-CLAIMED ones (matched by recipientId, since
+ * claiming an email-issued certificate with no wallet available at the
+ * time leaves it CLAIMED rather than ACTIVE — see the claim route) —
  * see lib/anchor.ts.
  */
 export async function POST(request: NextRequest) {
@@ -62,6 +65,8 @@ export async function POST(request: NextRequest) {
       select: { id: true, walletAddress: true, email: true },
     });
 
+    const toAnchor = [];
+
     if (user.email) {
       const pending = await prisma.certificate.findMany({
         where: { recipientEmail: user.email, status: "PENDING", walletAddress: null, cid: { not: null } },
@@ -71,8 +76,23 @@ export async function POST(request: NextRequest) {
           where: { id: { in: pending.map((c) => c.id) } },
           data: { walletAddress: normalized, recipientId: user.id },
         });
-        await autoAnchorCertificates(pending.map((c) => ({ ...c, walletAddress: normalized })));
+        toAnchor.push(...pending);
       }
+    }
+
+    const claimed = await prisma.certificate.findMany({
+      where: { recipientId: user.id, status: "CLAIMED", walletAddress: null, cid: { not: null } },
+    });
+    if (claimed.length > 0) {
+      await prisma.certificate.updateMany({
+        where: { id: { in: claimed.map((c) => c.id) } },
+        data: { walletAddress: normalized },
+      });
+      toAnchor.push(...claimed);
+    }
+
+    if (toAnchor.length > 0) {
+      await autoAnchorCertificates(toAnchor.map((c) => ({ ...c, walletAddress: normalized })));
     }
 
     return NextResponse.json({ user });

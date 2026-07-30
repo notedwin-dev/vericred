@@ -77,6 +77,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     cid,
     issuer,
     issuedAt,
+    txHash: certificate?.txHash ?? undefined,
     certificate: certificate
       ? {
           recipientName: certificate.recipientName,
