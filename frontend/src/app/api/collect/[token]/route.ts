@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isAddress } from "ethers";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { generateCredentialId } from "@/lib/credential";
+import { generateCertificate } from "@/lib/generate-certificate";
+import { autoAnchorCertificate } from "@/lib/anchor";
+import { RouteError } from "@/lib/route-error";
 import type { ClaimCollectionLinkInput } from "@/types";
 
 type RouteParams = { params: Promise<{ token: string }> };
@@ -57,7 +61,9 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
  * authenticated session (so the certificate can be tied to a user record).
  * Validates that the link is active, not expired, and under its max
  * collection count, then atomically increments the count and creates a
- * PENDING certificate.
+ * certificate — its PDF is generated and pinned to IPFS as part of the
+ * claim, and if the claiming user already has a wallet address it's
+ * anchored on-chain immediately (see lib/anchor.ts).
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
   const session = await auth();
@@ -86,7 +92,44 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   }
 
   const recipientEmail = body?.recipientEmail || session.user.email || null;
-  const walletAddress = body?.walletAddress || session.user.walletAddress || null;
+
+  let walletAddress: string | null = null;
+  if (body?.walletAddress && isAddress(body.walletAddress)) {
+    walletAddress = body.walletAddress;
+  } else if (session.user.walletAddress && isAddress(session.user.walletAddress)) {
+    walletAddress = session.user.walletAddress;
+  }
+
+  // Peek at the link so the certificate can be generated ahead of the
+  // transaction (PDF rendering + IPFS pinning is too slow to hold a DB
+  // transaction open for). Re-validated for real inside the transaction
+  // below, so a link that becomes invalid in between just wastes an
+  // unused IPFS pin rather than corrupting anything.
+  const linkPeek = await prisma.collectionLink.findUnique({
+    where: { token },
+    include: { course: { include: { template: true, issuer: true } } },
+  });
+  if (!linkPeek) {
+    return NextResponse.json({ error: "Collection link not found" }, { status: 404 });
+  }
+
+  const credentialId = generateCredentialId();
+  let cid: string;
+  try {
+    const generated = await generateCertificate({
+      credentialId,
+      recipientName,
+      courseName: linkPeek.course.name,
+      issuerName: linkPeek.course.issuer.organizationName,
+      templateLayout: (linkPeek.course.template.layout as Record<string, string>) ?? {},
+      issuedAt: new Date(),
+      verifyUrl: new URL(`/verify/${encodeURIComponent(credentialId)}`, request.nextUrl.origin).toString(),
+    });
+    cid = generated.cid;
+  } catch (error) {
+    console.error("Failed to generate certificate PDF:", error);
+    return NextResponse.json({ error: "Failed to generate certificate PDF" }, { status: 502 });
+  }
 
   try {
     const certificate = await prisma.$transaction(async (tx) => {
@@ -111,8 +154,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         throw new RouteError(409, "You have already claimed a certificate for this course");
       }
 
-      const credentialId = generateCredentialId();
-
       const certificate = await tx.certificate.create({
         data: {
           credentialId,
@@ -120,7 +161,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           recipientEmail,
           recipientId: session.user.id,
           courseId: link.courseId,
-          cid: null,
+          cid,
           walletAddress,
           expiresAt: link.certExpiresAt,
           status: "PENDING",
@@ -140,6 +181,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return certificate;
     });
 
+    if (walletAddress) {
+      const txHash = await autoAnchorCertificate(certificate);
+      if (txHash) {
+        certificate.status = "ACTIVE";
+        certificate.txHash = txHash;
+      }
+    }
+
     return NextResponse.json({ certificate }, { status: 201 });
   } catch (error) {
     if (error instanceof RouteError) {
@@ -152,12 +201,3 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: "Failed to claim certificate" }, { status: 500 });
   }
 }
-
-class RouteError extends Error {
-  status: number;
-  constructor(status: number, message: string) {
-    super(message);
-    this.status = status;
-  }
-}
-

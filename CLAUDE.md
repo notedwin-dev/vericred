@@ -50,28 +50,52 @@ NotAdmin, NotAuthorisedInstitution, NotIssuerOrAdmin, CredentialAlreadyExists, C
 
 - Next.js 15 (App Router), React 19, TypeScript
 - Tailwind CSS v4, shadcn/ui, lucide-react
-- Auth.js v5 (GitHub/Google/LinkedIn/email+password) + WalletConnect/SIWE
+- Auth.js v5 (GitHub/Google/LinkedIn/email+password) + @reown/appkit (WalletConnect) with SIWE
 - PostgreSQL + Prisma ORM
 - ethers.js v6 for contract interaction
 - @react-pdf/renderer for certificate PDFs
-- Pinata SDK for IPFS
+- Pinata SDK for IPFS (also used for profile avatar uploads)
+- SendGrid (`@sendgrid/mail`) for transactional email (email verification)
 - qrcode for QR codes
 
 ### Authentication Methods (in UI order)
 
-1. WalletConnect (primary, SIWE)
+1. WalletConnect via @reown/appkit (primary, SIWE) — the connected wallet address becomes `walletAddress`
 2. GitHub OAuth
 3. Google OAuth
 4. LinkedIn OAuth
-5. Email/password (auto-generates custody wallet)
+5. Email/password (credentials provider, bcrypt-hashed)
+
+Note: email/password signup does **not** currently generate a custody wallet — those users have no `walletAddress` until they separately connect one. The `custodyAddress`/`custodyKeyEnc` columns exist on `User` for this but nothing populates them yet.
+
+### User Identity & Account Linking
+
+- Users can set a `username` (enables a public profile at `/u/[username]`) and a profile picture (uploaded to IPFS via Pinata, see `/api/user/avatar`)
+- Wallet-first accounts (signed up via SIWE, no email) can add an email + password from `/dashboard/settings`. The address is staged in `pendingEmail` and only promoted to the real, unique `email` once the user clicks a SendGrid-emailed verification link (`/api/user/email` → `/api/user/email/verify`) — this stops a wallet user from squatting on someone else's address
+- Users can link additional OAuth providers to an already-authenticated account from Settings (`/api/user/link-intent` sets a signed cookie, then the normal `signIn(provider)` flow completes; the `signIn` callback in `lib/auth.ts` re-parents the resulting Account row onto the current user instead of creating a second one) and unlink one (blocked if it would leave the account with no remaining sign-in method)
+- If an OAuth sign-in's email collides with a different, unrelated existing account, Auth.js's built-in `OAuthAccountNotLinked` safety check fires — VeriCred does **not** auto-merge; the login page shows a message pointing the user to sign in with their original method and link the provider from Settings instead
+
+### Certificate Issuance
+
+- Issuers never supply a CID — `POST /api/certificates` (single) and `POST /api/certificates/batch` (CSV) both generate the certificate PDF server-side (`lib/certificate-pdf.tsx` + `lib/generate-certificate.tsx`, embedding a QR code to `/verify/[credentialId]`) and pin it to IPFS via `lib/ipfs.ts` before the DB row is created — the returned `cid` is always real, or a clearly-marked mock if `PINATA_API_KEY`/`PINATA_SECRET_KEY` aren't set
+- `recipientName` is required; `walletAddress` is optional on every issuance path (single, CSV batch, collection-link claim) — the contract's `issueCredential`/`issueCredentialBatch` both revert with `ZeroRecipient()` on a zero address, so a certificate without a wallet simply stays `PENDING` (off-chain only, PDF/CID already generated) until one is known
+- **Anchoring, two paths — both attribute correctly to the institution on-chain:**
+  - *Interactive* (issuer's own browser has a wallet connected): the single-issue dialog signs `issueCredential` directly; CSV batch issuance signs one `issueCredentialBatch()` for every row that has a wallet, in one MetaMask approval. Either way, the client then `PATCH`es the certificate(s) with `{ txHash }` (see `/api/certificates/[id]`) to flip `PENDING` → `ACTIVE`.
+  - *Deferred* (no issuer browser present — a collection-link claim, or a wallet-first user linking a wallet days later): `lib/anchor.ts`'s `autoAnchorCertificate`/`autoAnchorCertificates` sign with the owning **Issuer's own platform-custodied operator wallet** (`Issuer.operatorAddress`/`operatorKeyEnc`, generated + AES-256-GCM-encrypted by `lib/operator-wallet.ts`, decrypted only in-process to sign) — never the platform admin's key. When anchoring several certificates at once, they're grouped by issuer first since one `issueCredentialBatch` transaction can only be attributed to one `msg.sender`. If an issuer has no operator wallet provisioned, matching certificates just stay `PENDING` (logged, not thrown).
+  - Provisioning an operator wallet (currently only `prisma/seed.ts` does this — no self-service issuer-creation flow exists yet) requires `ENCRYPTION_KEY` to encrypt it. Funding it with gas money and authorising it on-chain are deliberately separate concerns: the **issuer's own wallet** funds it (in seed data, the known Hardhat Account #1 test key stands in for "the issuer's wallet" — a real institution would send gas money from its own connected wallet, since the platform never holds a real user's private key), while only **admin** can call `authoriseInstitution` (`onlyAdmin` on the contract; admin is auto-authorised as an institution itself in the constructor, which is separately how `ADMIN_PRIVATE_KEY` is used for `/api/institutions`).
+- CSV batch format: header row with `name` (required), `email`, `wallet` (both optional, matched case-insensitively) — parsed client-side by `lib/csv.ts`, previewed before submit, capped at 100 rows server-side
+- **Claiming a certificate issued by email, no account yet at issuance time:** a certificate can be issued with just `recipientEmail` (no `recipientId`, since no account existed to attach it to). Once someone signs in with that same email, it shows up as "Available to Claim" on their dashboard (`GET /api/certificates/claimable`, matched case-insensitively against `session.user.email`). Claiming (`POST /api/certificates/[id]/claim`) sets `recipientId` and, if the account already has a linked wallet, immediately attempts to anchor via `lib/anchor.ts` — success moves it straight to `ACTIVE`. Without a wallet, or if that anchor attempt fails, it lands on **`CLAIMED`**: a status distinct from `PENDING` meaning "ownership confirmed, not yet blockchain-verified" (`PENDING` means nobody has claimed it at all). `StatusBadge`, `verify-result.tsx`'s `resolveStatus`, and `/c/[credentialId]`'s messaging all treat `CLAIMED` as its own state, not a flavor of `PENDING`.
 
 ### Key Routes
 
 - `/` — Landing (no navbar, sign-in + verify CTAs)
+- `/login`, `/register` — Sign in / sign up (both offer WalletConnect + GitHub/Google/LinkedIn + email/password)
 - `/verify`, `/verify/[credentialId]` — Public verification
 - `/c/[credentialId]` — Public credential page (Accredible-style)
+- `/u/[username]` — Public user profile
 - `/collect/[token]` — Collection link claim page
 - `/dashboard` — User credentials dashboard
+- `/dashboard/settings` — Profile, email/password, connected accounts, wallet
 - `/issuer` — Issuer panel (courses, templates, issue, collection links)
 - `/admin` — Admin panel (institutions, revocation)
 
@@ -95,7 +119,12 @@ npm run seed                 # Seed demo data
 cd frontend
 npm install                  # Install frontend deps
 npx prisma migrate dev       # Run DB migrations
-npm run dev                  # Start dev server (auto-copies contract config)
+npx prisma db seed           # Seed an Admin user + Issuer (Asia Pacific University)
+npm run dev                  # Start dev server (auto-copies contract config via predev)
+npm run build                # Production build
+npm run start                # Start production server
+npm run lint                 # ESLint
+npm run test                 # Vitest integration tests (needs a local Postgres; see prisma/seed.ts and .env.test)
 ```
 
 ## Demo Setup
@@ -103,14 +132,28 @@ npm run dev                  # Start dev server (auto-copies contract config)
 1. Terminal 1: `npm run node` (Hardhat node at localhost:8545)
 2. Terminal 2: `npm run deploy && npm run seed`
 3. Set up PostgreSQL, configure `frontend/.env.local` with DB URL + auth secrets
-4. Terminal 3: `cd frontend && npx prisma migrate dev && npm run dev`
+4. Terminal 3: `cd frontend && npx prisma migrate dev && npx prisma db seed && npm run dev`
 5. Open http://localhost:3000
+
+### Seeded demo accounts (`npx prisma db seed`, from `frontend/prisma/seed.ts`)
+
+There's no self-service way to become Admin/Issuer in the app (see Auth's account-linking section) — this script is currently the only way to get one, and it's the **only** thing in the codebase allowed to set ADMIN/ISSUER role. Idempotent — matches strictly by its own dedicated email, so re-running it only ever updates the same row.
+
+| Role | Email | Password |
+|---|---|---|
+| Admin | `admin@vericred.local` | `Admin@12345` |
+| Issuer (Asia Pacific University) | `issuer@apu.edu.my` | `Issuer@12345` |
+
+**Deliberately email/password only — neither has a login wallet.** An earlier version matched existing users by wallet address and would silently overwrite whichever account it found (including a real tester's own SIWE-created account) with the seed identity and an elevated role — a real bug the user hit and reported, not a hypothetical. Matching by wallet also meant signing in with the same wallet later (e.g. Hardhat's well-known Account #0/#1 below — exactly what a developer would naturally use to test "regular user connects a wallet") landed on the seeded admin/issuer identity instead of a fresh account. If you need to test the app as admin/issuer with a connected wallet too, link one yourself from `/dashboard/settings` after signing in with the credentials above — don't reintroduce wallet-matching into the seed script.
+
+The Issuer's *organisation* on-chain wallet (`Issuer.walletAddress`, shown as `issuer` on anchored credentials) is still Hardhat Account #1 — that's a separate concept from a `User`'s login wallet and doesn't cause the same collision, since nothing signs in via it.
 
 ### Hardhat Test Accounts for MetaMask
 
+Useful for testing wallet sign-in as a plain user, or for linking to the seeded admin/issuer accounts afterward from Settings — but no longer double as those accounts' identity.
 
-- Account #0 (Admin): `0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`
-- Account #1 (Registry): `0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d`
+- Account #0: `0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`
+- Account #1: `0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d`
 
 ## Environment Variables
 
@@ -122,12 +165,38 @@ NEXT_PUBLIC_CONTRACT_ADDRESS=0x...
 NEXT_PUBLIC_CHAIN_ID=31337
 NEXT_PUBLIC_RPC_URL=http://127.0.0.1:8545
 
+# Etherscan-style block explorer base URL (e.g. https://sepolia.etherscan.io)
+# for the "View on Blockchain Explorer" link on /verify/[credentialId] and
+# /c/[credentialId] (lib/config.ts's getExplorerTxUrl, appends /tx/<hash>).
+# Unset on local Hardhat (chainId 31337, no explorer exists) — the link is
+# simply not rendered rather than pointing somewhere broken.
+NEXT_PUBLIC_BLOCK_EXPLORER_URL=
+
 # Database
 DATABASE_URL=postgresql://user:pass@localhost:5432/vericred
 
 # Auth
 NEXTAUTH_SECRET=<random-secret>
 NEXTAUTH_URL=http://localhost:3000
+
+# Server-signed on-chain transactions (admin is also an authorised institution
+# per VeriCred.sol's constructor). Used by /api/institutions (authorise/remove)
+# and, at issuer-provisioning time, to authorise each issuer's own operator
+# wallet via authoriseInstitution (onlyAdmin on the contract — no way around
+# that). Does NOT fund operator wallets — that comes from the issuer's own
+# wallet (see prisma/seed.ts), same as a real institution would. Auto-anchoring
+# itself signs with the operator wallet too, not this one (see ENCRYPTION_KEY
+# below). Without ADMIN_PRIVATE_KEY, admin-only actions are skipped with a
+# console warning, not an error.
+ADMIN_PRIVATE_KEY=<admin-wallet-private-key>
+
+# Encrypts each Issuer's platform-custodied operator wallet private key at
+# rest (lib/crypto.ts, AES-256-GCM). 32 bytes, hex (64 characters) — generate
+# with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`.
+# Without it, operator wallet provisioning (prisma/seed.ts) is skipped and
+# deferred anchoring has no signer to use for that issuer.
+ENCRYPTION_KEY=<64-hex-character-key>
+
 GITHUB_ID=<github-oauth-app-id>
 GITHUB_SECRET=<github-oauth-app-secret>
 GOOGLE_CLIENT_ID=<google-oauth-client-id>
@@ -135,10 +204,21 @@ GOOGLE_CLIENT_SECRET=<google-oauth-client-secret>
 LINKEDIN_CLIENT_ID=<linkedin-app-id>
 LINKEDIN_CLIENT_SECRET=<linkedin-app-secret>
 
-# IPFS (Pinata)
+# IPFS (Pinata) — also used for profile avatar uploads
 PINATA_API_KEY=<pinata-api-key>
 PINATA_SECRET_KEY=<pinata-secret-key>
 
-# WalletConnect
+# WalletConnect (via @reown/appkit)
 NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=<walletconnect-cloud-project-id>
+
+# Email (SendGrid) — sends the pendingEmail verification link
+# (see /api/user/email, lib/email.ts). If unset:
+#   - development: warns and returns without sending (no SendGrid account
+#     needed for local testing) — the recipient/URL are deliberately never
+#     logged, even here, since the URL carries a bearer token. Check the
+#     VerificationToken table directly (e.g. Prisma Studio) if you need it.
+#   - production: throws, and /api/user/email returns 503, rather than
+#     silently reporting success while sending nothing.
+SENDGRID_API_KEY=<sendgrid-api-key>
+SENDGRID_FROM_EMAIL=<verified-sender-email>
 ```

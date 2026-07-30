@@ -9,7 +9,7 @@
 
 export type Role = "USER" | "ISSUER" | "ADMIN";
 
-export type CertificateStatus = "PENDING" | "ACTIVE" | "REVOKED" | "EXPIRED";
+export type CertificateStatus = "PENDING" | "CLAIMED" | "ACTIVE" | "REVOKED" | "EXPIRED";
 
 // ── On-chain data ────────────────────────────────────────────────────
 
@@ -46,7 +46,7 @@ export interface CertificateDTO {
   recipientEmail: string | null;
   recipientId: string | null;
   courseId: string;
-  cid: string;
+  cid: string | null;
   txHash: string | null;
   walletAddress: string | null;
   issuedAt: string;
@@ -55,6 +55,12 @@ export interface CertificateDTO {
   revokedAt: string | null;
   revocationReason: string | null;
   createdAt: string;
+  course?: {
+    name: string;
+    issuer?: {
+      organizationName: string;
+    };
+  };
 }
 
 export interface IssueCertificateInput {
@@ -63,10 +69,19 @@ export interface IssueCertificateInput {
   recipientEmail?: string;
   recipientId?: string;
   courseId: string;
-  cid: string;
-  txHash?: string;
   walletAddress?: string;
   expiresAt?: string;
+}
+
+/** One row of a CSV batch upload — same shape, one course per batch. */
+export interface BatchIssueCertificateRow {
+  recipientName: string;
+  recipientEmail?: string;
+  walletAddress?: string;
+}
+
+export interface ConfirmAnchorInput {
+  txHash: string;
 }
 
 export interface RevokeCertificateInput {
@@ -126,6 +141,14 @@ export interface CreateCollectionLinkInput {
   certExpiresAt?: string;
 }
 
+/** Omitted fields are left unchanged; explicit `null` clears that field. */
+export interface UpdateCollectionLinkInput {
+  maxCollections?: number | null;
+  linkExpiresAt?: string | null;
+  certExpiresAt?: string | null;
+  active?: boolean;
+}
+
 export interface ClaimCollectionLinkInput {
   recipientName: string;
   recipientEmail?: string;
@@ -153,6 +176,7 @@ export interface InstitutionDTO {
 export interface SessionUser {
   id: string;
   name?: string | null;
+  username?: string | null;
   email?: string | null;
   image?: string | null;
   role: Role;
