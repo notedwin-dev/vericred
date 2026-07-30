@@ -84,6 +84,7 @@ Note: email/password signup does **not** currently generate a custody wallet —
   - *Deferred* (no issuer browser present — a collection-link claim, or a wallet-first user linking a wallet days later): `lib/anchor.ts`'s `autoAnchorCertificate`/`autoAnchorCertificates` sign with the owning **Issuer's own platform-custodied operator wallet** (`Issuer.operatorAddress`/`operatorKeyEnc`, generated + AES-256-GCM-encrypted by `lib/operator-wallet.ts`, decrypted only in-process to sign) — never the platform admin's key. When anchoring several certificates at once, they're grouped by issuer first since one `issueCredentialBatch` transaction can only be attributed to one `msg.sender`. If an issuer has no operator wallet provisioned, matching certificates just stay `PENDING` (logged, not thrown).
   - Provisioning an operator wallet (currently only `prisma/seed.ts` does this — no self-service issuer-creation flow exists yet) requires `ENCRYPTION_KEY` to encrypt it. Funding it with gas money and authorising it on-chain are deliberately separate concerns: the **issuer's own wallet** funds it (in seed data, the known Hardhat Account #1 test key stands in for "the issuer's wallet" — a real institution would send gas money from its own connected wallet, since the platform never holds a real user's private key), while only **admin** can call `authoriseInstitution` (`onlyAdmin` on the contract; admin is auto-authorised as an institution itself in the constructor, which is separately how `ADMIN_PRIVATE_KEY` is used for `/api/institutions`).
 - CSV batch format: header row with `name` (required), `email`, `wallet` (both optional, matched case-insensitively) — parsed client-side by `lib/csv.ts`, previewed before submit, capped at 100 rows server-side
+- **Claiming a certificate issued by email, no account yet at issuance time:** a certificate can be issued with just `recipientEmail` (no `recipientId`, since no account existed to attach it to). Once someone signs in with that same email, it shows up as "Available to Claim" on their dashboard (`GET /api/certificates/claimable`, matched case-insensitively against `session.user.email`). Claiming (`POST /api/certificates/[id]/claim`) sets `recipientId` and, if the account already has a linked wallet, immediately attempts to anchor via `lib/anchor.ts` — success moves it straight to `ACTIVE`. Without a wallet, or if that anchor attempt fails, it lands on **`CLAIMED`**: a status distinct from `PENDING` meaning "ownership confirmed, not yet blockchain-verified" (`PENDING` means nobody has claimed it at all). `StatusBadge`, `verify-result.tsx`'s `resolveStatus`, and `/c/[credentialId]`'s messaging all treat `CLAIMED` as its own state, not a flavor of `PENDING`.
 
 ### Key Routes
 
@@ -136,20 +137,23 @@ npm run test                 # Vitest integration tests (needs a local Postgres;
 
 ### Seeded demo accounts (`npx prisma db seed`, from `frontend/prisma/seed.ts`)
 
-There's no self-service way to become Admin/Issuer in the app (see Auth's account-linking section) — this script is currently the only way to get one. It's idempotent (safe to re-run) and promotes an existing user in place if one already has the target wallet address, so it won't create duplicates.
+There's no self-service way to become Admin/Issuer in the app (see Auth's account-linking section) — this script is currently the only way to get one, and it's the **only** thing in the codebase allowed to set ADMIN/ISSUER role. Idempotent — matches strictly by its own dedicated email, so re-running it only ever updates the same row.
 
-| Role | Email | Password | Wallet (matches Hardhat account) |
-|---|---|---|---|
-| Admin | `admin@vericred.local` | `Admin@12345` | Account #0 — `0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266` |
-| Issuer (Asia Pacific University) | `issuer@apu.edu.my` | `Issuer@12345` | Account #1 — `0x70997970C51812dc3A010C7d01b50e0d17dc79C8` |
+| Role | Email | Password |
+|---|---|---|
+| Admin | `admin@vericred.local` | `Admin@12345` |
+| Issuer (Asia Pacific University) | `issuer@apu.edu.my` | `Issuer@12345` |
 
-The wallet addresses match `scripts/deploy.js`'s Admin/Registry accounts, so signing in with either MetaMask account (see the private keys below) lands on the matching seeded user instead of creating a new one.
+**Deliberately email/password only — neither has a login wallet.** An earlier version matched existing users by wallet address and would silently overwrite whichever account it found (including a real tester's own SIWE-created account) with the seed identity and an elevated role — a real bug the user hit and reported, not a hypothetical. Matching by wallet also meant signing in with the same wallet later (e.g. Hardhat's well-known Account #0/#1 below — exactly what a developer would naturally use to test "regular user connects a wallet") landed on the seeded admin/issuer identity instead of a fresh account. If you need to test the app as admin/issuer with a connected wallet too, link one yourself from `/dashboard/settings` after signing in with the credentials above — don't reintroduce wallet-matching into the seed script.
+
+The Issuer's *organisation* on-chain wallet (`Issuer.walletAddress`, shown as `issuer` on anchored credentials) is still Hardhat Account #1 — that's a separate concept from a `User`'s login wallet and doesn't cause the same collision, since nothing signs in via it.
 
 ### Hardhat Test Accounts for MetaMask
 
+Useful for testing wallet sign-in as a plain user, or for linking to the seeded admin/issuer accounts afterward from Settings — but no longer double as those accounts' identity.
 
-- Account #0 (Admin): `0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`
-- Account #1 (Registry): `0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d`
+- Account #0: `0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`
+- Account #1: `0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d`
 
 ## Environment Variables
 
@@ -160,6 +164,13 @@ The wallet addresses match `scripts/deploy.js`'s Admin/Registry accounts, so sig
 NEXT_PUBLIC_CONTRACT_ADDRESS=0x...
 NEXT_PUBLIC_CHAIN_ID=31337
 NEXT_PUBLIC_RPC_URL=http://127.0.0.1:8545
+
+# Etherscan-style block explorer base URL (e.g. https://sepolia.etherscan.io)
+# for the "View on Blockchain Explorer" link on /verify/[credentialId] and
+# /c/[credentialId] (lib/config.ts's getExplorerTxUrl, appends /tx/<hash>).
+# Unset on local Hardhat (chainId 31337, no explorer exists) — the link is
+# simply not rendered rather than pointing somewhere broken.
+NEXT_PUBLIC_BLOCK_EXPLORER_URL=
 
 # Database
 DATABASE_URL=postgresql://user:pass@localhost:5432/vericred

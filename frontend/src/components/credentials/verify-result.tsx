@@ -3,15 +3,19 @@ import {
   XCircle,
   Clock,
   ShieldOff,
+  BadgeCheck,
   ExternalLink,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { CertificatePreview } from "@/components/credentials/certificate-preview";
 import { formatAddress, formatTimestamp } from "@/lib/utils";
+import { getExplorerTxUrl } from "@/lib/config";
 import type { VerifyApiResult } from "@/types/verify";
 
-type DisplayStatus = "VALID" | "REVOKED" | "EXPIRED" | "PENDING" | "NOT_FOUND";
+type DisplayStatus = "VALID" | "REVOKED" | "EXPIRED" | "CLAIMED" | "PENDING" | "NOT_FOUND";
 
 function resolveStatus(result: VerifyApiResult): DisplayStatus {
   if (!result.exists) return "NOT_FOUND";
@@ -23,6 +27,7 @@ function resolveStatus(result: VerifyApiResult): DisplayStatus {
     return "EXPIRED";
   }
   if (cert?.status === "REVOKED" || cert?.revokedAt) return "REVOKED";
+  if (cert?.status === "CLAIMED") return "CLAIMED";
   if (!result.onChain) return "PENDING";
   return "EXPIRED";
 }
@@ -60,6 +65,14 @@ const STATUS_CONFIG: Record<
     cardClass: "border-border",
     iconClass: "text-muted-foreground",
   },
+  CLAIMED: {
+    label: "Claimed — Awaiting Wallet",
+    icon: BadgeCheck,
+    badgeClass:
+      "bg-purple-100 text-purple-700 dark:bg-purple-500/15 dark:text-purple-400",
+    cardClass: "border-purple-200 dark:border-purple-900",
+    iconClass: "text-purple-600 dark:text-purple-400",
+  },
   PENDING: {
     label: "Pending Anchoring",
     icon: Clock,
@@ -82,6 +95,7 @@ export function VerifyResult({ result }: { result: VerifyApiResult }) {
   const config = STATUS_CONFIG[status];
   const Icon = config.icon;
   const cert = result.certificate;
+  const explorerUrl = result.txHash ? getExplorerTxUrl(result.txHash) : null;
 
   return (
     <Card className={`${config.cardClass} border-2`}>
@@ -109,8 +123,17 @@ export function VerifyResult({ result }: { result: VerifyApiResult }) {
           {status === "PENDING" && (
             <p className="rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
               This certificate has been issued and its PDF is pinned to IPFS — untamperable
-              from this point on — but it isn&apos;t blockchain-verified yet. The recipient
-              completes that step by linking a wallet, which anchors it on-chain.
+              from this point on — but nobody has claimed it yet, and it isn&apos;t
+              blockchain-verified. The recipient completes both steps by signing in and
+              claiming it from their dashboard.
+            </p>
+          )}
+
+          {status === "CLAIMED" && (
+            <p className="rounded-md bg-purple-50 px-3 py-2 text-sm text-purple-700 dark:bg-purple-950/40 dark:text-purple-400">
+              The recipient has claimed this certificate — their account and email address
+              are confirmed — but it isn&apos;t blockchain-verified yet. That completes
+              automatically once they link a wallet.
             </p>
           )}
 
@@ -163,24 +186,28 @@ export function VerifyResult({ result }: { result: VerifyApiResult }) {
             )}
           </dl>
 
+          {explorerUrl && (
+            <Button
+              render={<a href={explorerUrl} target="_blank" rel="noreferrer" />}
+              nativeButton={false}
+              variant="outline"
+              size="sm"
+              className="w-fit gap-1.5"
+            >
+              <ExternalLink className="size-3.5" />
+              View on Blockchain Explorer
+            </Button>
+          )}
+
           {result.cid && (
             <>
               <Separator />
-              <div className="flex flex-col gap-1.5">
-                <span className="text-xs font-medium text-muted-foreground">IPFS Content ID</span>
-                <div className="flex flex-wrap items-center gap-2">
-                  <code className="rounded-md bg-muted px-2 py-1 text-xs break-all">
-                    {result.cid}
-                  </code>
-                  <a
-                    href={`https://ipfs.io/ipfs/${result.cid}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-                  >
-                    View on IPFS <ExternalLink className="size-3" />
-                  </a>
-                </div>
+              <div className="flex flex-col gap-2">
+                <span className="text-xs font-medium text-muted-foreground">Certificate Document</span>
+                <CertificatePreview cid={result.cid} />
+                <code className="w-fit rounded-md bg-muted px-2 py-1 text-xs break-all">
+                  {result.cid}
+                </code>
               </div>
             </>
           )}

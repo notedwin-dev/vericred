@@ -15,6 +15,7 @@ export interface VerifyApiResult {
   cid?: string;
   issuer?: string;
   issuedAt?: number;
+  txHash?: string;
   certificate: {
     recipientName: string;
     status: CertificateStatus;
