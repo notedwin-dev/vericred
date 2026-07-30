@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isAddress } from "ethers";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { generateCredentialId } from "@/lib/credential";
+import { generateCertificate } from "@/lib/generate-certificate";
 import type { IssueCertificateInput } from "@/types";
 
 /**
@@ -56,6 +58,18 @@ export async function GET(request: NextRequest) {
 
   const certificates = await prisma.certificate.findMany({
     where,
+    include: {
+      course: {
+        select: {
+          name: true,
+          issuer: {
+            select: {
+              organizationName: true,
+            },
+          },
+        },
+      },
+    },
     orderBy: { createdAt: "desc" },
   });
 
@@ -65,9 +79,12 @@ export async function GET(request: NextRequest) {
 /**
  * POST /api/certificates
  *
- * Creates a PENDING certificate record ahead of (or immediately after) the
- * on-chain `issueCredential` transaction. Requires an ISSUER (or ADMIN)
- * session, and the target course must belong to the calling issuer.
+ * Creates a certificate: generates its PDF (from the course's template),
+ * pins it to IPFS, and stores the resulting CID — the issuer never
+ * supplies one. Requires an ISSUER (or ADMIN) session, and the target
+ * course must belong to the calling issuer. `walletAddress` is optional;
+ * without one the certificate stays PENDING until a wallet is known (see
+ * lib/anchor.ts), since the contract requires a non-zero recipient.
  */
 export async function POST(request: NextRequest) {
   const session = await auth();
@@ -85,17 +102,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { recipientName, recipientEmail, recipientId, courseId, cid, txHash, walletAddress, expiresAt } =
-    body ?? {};
+  const { recipientName, recipientEmail, recipientId, courseId, walletAddress, expiresAt } = body ?? {};
 
-  if (!recipientName || typeof recipientName !== "string") {
+  if (!recipientName || typeof recipientName !== "string" || !recipientName.trim()) {
     return NextResponse.json({ error: "recipientName is required" }, { status: 400 });
   }
   if (!courseId || typeof courseId !== "string") {
     return NextResponse.json({ error: "courseId is required" }, { status: 400 });
   }
+  if (walletAddress && !isAddress(walletAddress)) {
+    return NextResponse.json({ error: "walletAddress is not a valid Ethereum address" }, { status: 400 });
+  }
 
-  const course = await prisma.course.findUnique({ where: { id: courseId } });
+  const course = await prisma.course.findUnique({
+    where: { id: courseId },
+    include: { template: true, issuer: true },
+  });
   if (!course) {
     return NextResponse.json({ error: "Course not found" }, { status: 404 });
   }
@@ -139,17 +161,35 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const issuedAt = new Date();
+  let cid: string;
+  try {
+    const generated = await generateCertificate({
+      credentialId,
+      recipientName: recipientName.trim(),
+      courseName: course.name,
+      issuerName: course.issuer.organizationName,
+      templateLayout: (course.template.layout as Record<string, string>) ?? {},
+      issuedAt,
+      verifyUrl: new URL(`/verify/${encodeURIComponent(credentialId)}`, request.nextUrl.origin).toString(),
+    });
+    cid = generated.cid;
+  } catch (error) {
+    console.error("Failed to generate certificate PDF:", error);
+    return NextResponse.json({ error: "Failed to generate certificate PDF" }, { status: 502 });
+  }
+
   try {
     const certificate = await prisma.certificate.create({
       data: {
         credentialId,
-        recipientName,
+        recipientName: recipientName.trim(),
         recipientEmail: recipientEmail || null,
         recipientId: recipientId || null,
         courseId,
-        cid: cid || null,
-        txHash: txHash || null,
+        cid,
         walletAddress: walletAddress || null,
+        issuedAt,
         expiresAt: expiresAtDate,
         status: "PENDING",
       },
@@ -167,4 +207,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Failed to create certificate" }, { status: 500 });
   }
 }
-

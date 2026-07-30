@@ -1,220 +1,195 @@
-# VeriCred — Smart Contract (Hardhat)
+# VeriCred
 
-Blockchain-anchored academic credential registry.
-Module: **CT124-3-3-BCD** Blockchain Design and Development — Group 14, APU.
+Blockchain-anchored academic credential verification — issue, verify, and revoke certificates with tamper-proof, on-chain proof.
 
-This package contains the **Solidity / Hardhat** half of the VeriCred DApp.
-The Next.js frontend connects to the contract deployed by `scripts/deploy.js`.
+## Overview
 
----
+VeriCred is a blockchain-based Academic Credential Verification System, similar to Accredible or Credly. Universities and organizations issue certificates as encrypted PDFs stored on IPFS; only the file's content fingerprint (IPFS CID) is anchored on-chain. Anyone — an employer, a recruiter, another institution — can verify a credential in seconds without contacting the issuer, while the underlying personal data never touches the public ledger.
 
-## 1. Requirements
+Built for module **CT124-3-3-BCD (Blockchain Design and Development)**, Group 14, APU.
 
-| Tool | Version |
+## Key Features
+
+- **Tamper-proof verification** — credential integrity is checked against an IPFS CID anchored on-chain; any change to the certificate file invalidates the fingerprint
+- **Public verification** — anyone can verify by credential ID or QR code, no account or wallet required
+- **Multiple sign-in methods** — WalletConnect (SIWE), GitHub, Google, LinkedIn, or email/password with an auto-generated custody wallet
+- **Course-centric issuance** — templates → courses → single or batch certificate issuance (CSV upload supported)
+- **Collection links** — shareable claim links with configurable collection limits, link expiry, and certificate expiry
+- **Wallet migration** — recipients can link a new wallet and transfer their credentials on-chain via `transferCredential`
+- **Revocation with audit trail** — issuers or admin can revoke a credential with a mandatory reason; records are never deleted
+- **Blockchain transparency** — every credential page shows the IPFS CID, transaction hash, block number, and contract address
+- **LinkedIn integration** — one-click "Add to Profile" for verified credentials
+
+## Tech Stack
+
+| Layer | Technology |
 |---|---|
-| Node.js | 18 LTS or newer |
-| npm | 9 or newer |
-| Visual Studio Code | any recent |
+| Smart Contract | Solidity ^0.8.24, Hardhat, ethers.js v6 |
+| Frontend | Next.js 15 (App Router), React 19, TypeScript |
+| Styling | Tailwind CSS v4, shadcn/ui, lucide-react |
+| Auth | Auth.js v5, WalletConnect / SIWE, bcrypt |
+| Database | PostgreSQL, Prisma ORM |
+| PDF Generation | @react-pdf/renderer |
+| IPFS Storage | Pinata SDK |
+| QR Codes | qrcode |
 
----
+## Repository Structure
 
-## 2. Setup
+```text
+vericred/
+  contracts/VeriCred.sol      # Solidity smart contract (^0.8.24)
+  test/VeriCred.test.js       # Hardhat tests (ethers v6, chai)
+  scripts/deploy.js           # Deploys contract, exports ABI + address to frontend-config/
+  scripts/seed.js             # Seeds 4 demo credentials, revokes 1
+  hardhat.config.js           # Solidity 0.8.24, optimizer 200 runs, localhost network
+  frontend/                   # Next.js 15 app (App Router, TypeScript, Tailwind, shadcn/ui)
+    prisma/schema.prisma      # PostgreSQL schema
+    src/app/                  # Pages (App Router)
+    src/components/           # React components
+    src/lib/                  # Utilities, config, contract helpers
+    src/hooks/                # Custom React hooks
+```
+
+## Prerequisites
+
+- Node.js >= 18.18.0 (required by Next.js 15)
+- npm 9 or newer
+- PostgreSQL (local instance or hosted)
+- MetaMask (or another WalletConnect-compatible wallet) for on-chain interactions
+
+## Getting Started
+
+### 1. Install and start the local blockchain
 
 ```bash
 npm install
+npm run node          # starts a local Hardhat node at http://127.0.0.1:8545
 ```
 
-Hardhat downloads the Solidity 0.8.24 compiler automatically on first build,
-so an internet connection is needed once.
+### 2. Deploy the contract and seed demo data
 
----
-
-## 3. Compile
+In a second terminal:
 
 ```bash
-npx hardhat compile
+npm run deploy         # deploys VeriCred.sol, writes ABI + address to frontend-config/
+npm run seed            # seeds 4 demo credentials, revokes 1
 ```
 
-Expected output:
+### 3. Set up the frontend
 
-```
-Compiled 1 Solidity file successfully (evm target: paris).
-```
-
-Artifacts (ABI + bytecode) are written to `artifacts/`.
-
----
-
-## 4. Run the tests
+In a third terminal:
 
 ```bash
-npx hardhat test
+cd frontend
+npm install
 ```
 
-37 tests cover deployment, access control, issuing, batch issuing,
-verification, revocation, tamper detection and pagination.
-
----
-
-## 5. Deploy to the local blockchain
-
-Two terminals are needed.
-
-**Terminal 1 — start the local chain (leave running):**
+Configure `frontend/.env.local` with your database URL and auth secrets (see [Environment Variables](#environment-variables)) before running migrations:
 
 ```bash
-npx hardhat node
+npx prisma migrate dev  # apply the PostgreSQL schema
+npm run dev              # auto-copies contract config, starts dev server
 ```
 
-This starts a blockchain at `http://127.0.0.1:8545`, chainId `31337`,
-with 20 pre-funded test accounts.
+### 4. Open the app
 
-**Terminal 2 — deploy, then load demo data:**
+Visit [http://localhost:3000](http://localhost:3000).
+
+### Other useful commands
 
 ```bash
-npx hardhat run scripts/deploy.js --network localhost
-npx hardhat run scripts/seed.js  --network localhost
+# Root (Hardhat)
+npm run compile       # Compile contracts
+npm run test           # Run contract tests
+npm run node            # Start a local Hardhat node
+npm run deploy           # Deploy VeriCred.sol to localhost
+npm run seed              # Seed demo credentials
+
+# Frontend
+cd frontend
+node scripts/copy-config.js    # Copy contract config (auto-runs in dev, needed before build)
+npm run build                  # Production build
+npm run start                  # Start the production server (after npm run build)
+npm run lint                   # Run ESLint
 ```
 
-`deploy.js` writes two files into `frontend-config/`:
+### Import test accounts into MetaMask
 
-| File | Purpose |
+> **Warning:** These are Hardhat's default test keys for **local development only**. Never use them on public or production networks — they are publicly known and any funds sent to them will be lost.
+
+| Role | Private Key |
 |---|---|
-| `contract.json` | Deployed address, chainId and ABI |
-| `.env.local` | Copy into the Next.js project root |
+| Admin (Account #0) | `0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80` |
+| Registry (Account #1) | `0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d` |
 
-Copy `frontend-config/.env.local` into your Next.js folder so the frontend
-knows where the contract lives.
+Add a custom network in MetaMask: RPC URL `http://127.0.0.1:8545`, chain ID `31337`.
 
----
+## Environment Variables
 
-## 6. Accounts used by the demo
+Set these in `frontend/.env.local`:
 
-Hardhat's node always generates the same accounts, so these are stable:
+| Variable | Description |
+|---|---|
+| `NEXT_PUBLIC_CONTRACT_ADDRESS` | Deployed VeriCred contract address (auto-copied from `frontend-config/`) |
+| `NEXT_PUBLIC_CHAIN_ID` | Chain ID of the target network (`31337` for local Hardhat) |
+| `NEXT_PUBLIC_RPC_URL` | JSON-RPC endpoint (`http://127.0.0.1:8545` for local) |
+| `DATABASE_URL` | PostgreSQL connection string |
+| `NEXTAUTH_SECRET` | Random secret used to sign Auth.js sessions |
+| `NEXTAUTH_URL` | Base URL of the app (`http://localhost:3000` in dev) |
+| `SENDGRID_API_KEY` | SendGrid API key used to send email-verification links |
+| `SENDGRID_FROM_EMAIL` | Verified sender address SendGrid sends from |
+| `GITHUB_ID` / `GITHUB_SECRET` | GitHub OAuth app credentials |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth client credentials |
+| `LINKEDIN_CLIENT_ID` / `LINKEDIN_CLIENT_SECRET` | LinkedIn OAuth app credentials |
+| `PINATA_API_KEY` / `PINATA_SECRET_KEY` | Pinata API credentials for IPFS uploads |
+| `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | WalletConnect Cloud project ID |
 
-| Role | Address | Notes |
-|---|---|---|
-| Admin | `0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266` | Account #0, deployer |
-| Academic Registry | `0x70997970C51812dc3A010C7d01b50e0d17dc79C8` | Account #1, issues credentials |
-| Employer / verifier | any address, or none | Verification is a free read |
+The contract config (`NEXT_PUBLIC_CONTRACT_ADDRESS`, `NEXT_PUBLIC_CHAIN_ID`, `NEXT_PUBLIC_RPC_URL`) is generated by `scripts/deploy.js` into `frontend-config/`, then copied into the frontend by `frontend/scripts/copy-config.js` (runs automatically as a `predev` step).
 
----
+## Smart Contract Overview
 
-## 7. System features
+`contracts/VeriCred.sol` anchors only the data required to prove a credential's authenticity — issuer address, recipient address, IPFS CID, timestamps, expiry, and revocation status. All personally identifiable information (names, grades, etc.) stays off-chain, encrypted, and referenced by CID.
 
 ### Roles
 
-- **Admin** — authorises and removes institutions, can transfer admin rights.
-- **Institution (Academic Registry)** — issues credentials, revokes its own.
-- **Verifier (employer, public)** — verifies any credential for free, no account
-  and no wallet balance required.
+| Role | Capabilities |
+|---|---|
+| **Admin** | Authorize/remove institutions, revoke any credential, transfer admin role |
+| **Institution (Issuer)** | Issue and revoke its own credentials |
+| **Verifier (public)** | Verify any credential and browse the registry for free — no account or wallet required |
+| **Recipient** | Holds credentials; can transfer them to a new wallet |
 
-### Contract functions
+### Key Functions
 
 | Function | Access | Purpose |
 |---|---|---|
-| `issueCredential(id, cid)` | Institution | Anchors one credential |
-| `issueCredentialBatch(ids[], cids[])` | Institution | Anchors a whole cohort in one transaction |
-| `revokeCredential(id, reason)` | Issuer or admin | Withdraws a credential, reason is published |
-| `verifyCredential(id)` | Anyone (free) | Returns `exists`, `valid`, `cid`, `issuer`, `issuedAt` |
-| `getCredential(id)` | Anyone (free) | Full record including revocation detail |
-| `isValid(id)` | Anyone (free) | Single boolean for a UI badge |
-| `getCredentialsPaged(offset, limit)` | Anyone (free) | Paginated listing for the registry table |
-| `totalCredentials()` | Anyone (free) | Record count |
-| `authoriseInstitution(addr)` | Admin | Grants issuing rights |
-| `removeInstitution(addr)` | Admin | Revokes issuing rights (past credentials stay valid) |
-| `transferAdmin(addr)` | Admin | Hands over administration |
+| `issueCredential(id, cid, recipient, expiresAt)` | Institution | Anchor a single credential |
+| `issueCredentialBatch(...)` | Institution | Anchor a batch of credentials in one transaction |
+| `revokeCredential(id, reason)` | Issuer or Admin | Revoke with a mandatory reason (append-only) |
+| `transferCredential(id, newRecipient)` | Recipient or Admin | Migrate a credential to a new wallet |
+| `verifyCredential(id)` | Anyone (free) | Returns exists, valid, cid, issuer, issuedAt, recipient, expiresAt |
+| `getCredential(id)` / `isValid(id)` | Anyone (free) | Full record / boolean validity check |
+| `getCredentialsPaged(offset, limit)` | Anyone (free) | Paginated registry browse |
+| `authoriseInstitution(addr)` / `removeInstitution(addr)` | Admin | Manage institution issuing rights |
+| `transferAdmin(addr)` | Admin | Transfer admin role |
 
-### Events
+Design rules: credential IDs can be anchored exactly once (no overwrites), revocation never deletes records, `exists` and `valid` are tracked separately, and removing an institution does not void its past credentials.
 
-| Event | Emitted when |
-|---|---|
-| `CredentialIssued` | A credential is anchored |
-| `CredentialRevoked` | A credential is withdrawn |
-| `InstitutionAuthorised` | An institution gains issuing rights |
-| `InstitutionRemoved` | An institution loses issuing rights |
-| `AdminTransferred` | Administration changes hands |
+See `CLAUDE.md` for the full technical guide and `PRD.md` for the complete feature list (F1–F15) and demo flow.
 
----
+## User Roles
 
-## 8. Design decisions
+| Role | Who | What they do |
+|---|---|---|
+| **Admin** | Platform administrator | Authorizes institutions, has override revocation authority, transfers admin role |
+| **Institution / Issuer** | University, event organizer, organization | Creates templates and courses, issues certificates (single or batch), generates collection links, revokes its own credentials |
+| **Recipient** | Student / professional | Claims and holds credentials, downloads PDFs, shares to LinkedIn, links/migrates wallet |
+| **Verifier** | Anyone (public/employer) | Verifies a credential by ID or QR code — no account or wallet needed |
 
-**No personal data is stored on-chain.**
-Only the IPFS CID of the encrypted certificate file is written to the
-blockchain. Names, student IDs and programme details stay in the off-chain
-MySQL index. A public ledger is permanent and world-readable, so personal
-data must never be placed in it.
+## License
 
-**The CID is the integrity fingerprint.**
-An IPFS CID is a multihash of the file's own bytes. Change one character of
-the certificate and it hashes to a different CID, which no longer matches
-what was anchored. No separate hash field is needed, and none is stored.
+MIT — see [LICENSE](./LICENSE).
 
-**`exists` and `valid` are returned separately.**
-A forged certificate (never anchored) and a genuine but withdrawn one are
-different situations. An employer needs to tell them apart, so
-`verifyCredential` reports both facts rather than collapsing them into one
-boolean.
+## Team
 
-**An anchored CID can never be overwritten.**
-There is no setter, and re-issuing an existing identifier reverts. If the
-registry could swap the file behind an identifier an employer had already
-verified, anchoring it would be pointless.
-
-**Revocation appends, it never deletes.**
-Revoking sets a status flag and records a reason. The struct, the CID and the
-original `CredentialIssued` event all survive untouched, so the full history
-of the award stays auditable forever.
-
-**Removing an institution does not void its past credentials.**
-Losing the right to issue in future is not the same as previous awards
-becoming void, and the contract does not conflate the two.
-
-**Storage is packed.**
-`issuer` (20 bytes) + `issuedAt` (5) + `revokedAt` (5) + `revoked` (1) equals
-31 bytes, so these four fields share a single 32-byte storage slot. `uint40`
-timestamps remain valid until the year 36812.
-
----
-
-## 9. Measured gas costs
-
-Taken from a live Hardhat node, optimizer enabled at 200 runs.
-
-| Operation | Gas |
-|---|---|
-| Deploy (constructor) | 1,556,067 |
-| `authoriseInstitution` | 47,686 |
-| `issueCredential` | 189,621 |
-| `revokeCredential` | 57,159 |
-| `issueCredentialBatch` (50 records) | 144,848 per credential |
-| `verifyCredential` | 0 — read-only call |
-
-Batching a 50-graduate cohort saves **23.6%** against issuing one at a time,
-because the ~21,000 gas transaction base cost is paid once rather than fifty
-times.
-
-Verification costs nothing, which is the point: an employer anywhere in the
-world can check a degree without an account, a wallet balance, or a request
-to the university.
-
----
-
-## 10. Project structure
-
-```
-.
-├── contracts/
-│   └── VeriCred.sol           the smart contract
-├── scripts/
-│   ├── deploy.js              deploys and exports address + ABI
-│   └── seed.js                loads four demo credentials
-├── test/
-│   └── VeriCred.test.js       37 tests
-├── hardhat.config.js
-├── package.json
-└── README.md
-```
-
-Generated at build time and not included here:
-`node_modules/`, `artifacts/`, `cache/`, `frontend-config/`.
+Group 14, APU — Module CT124-3-3-BCD (Blockchain Development)
