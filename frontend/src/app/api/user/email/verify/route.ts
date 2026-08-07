@@ -10,7 +10,7 @@ import { prisma } from "@/lib/prisma";
  *
  *  - **Registration** (no pendingEmail): the address is already on the
  *    account but unproven, and login is blocked until it is
- *    (docs/institution-registration-prd.md Decision 5). Lands on /login.
+ *    (docs/prds/institution-registration-prd.md Decision 5). Lands on /login.
  *  - **Email change** on a wallet-first account (pendingEmail staged):
  *    promotes pendingEmail to the real, unique email. Lands on Settings.
  *

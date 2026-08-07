@@ -9,8 +9,8 @@ type RouteParams = { params: Promise<{ id: string }> };
  *
  * Admin-only. Rejects a PENDING institution registration request with a
  * mandatory reason (mirrors credential revocation's EmptyReason
- * convention). No on-chain action, no role change (docs/
- * institution-registration-prd.md §6.6).
+ * convention). No on-chain action, no role change (docs/prds/
+ * institution-registration-prd.md 6.6).
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
   const session = await auth();

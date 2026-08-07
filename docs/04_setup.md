@@ -2,7 +2,7 @@
 
 **Module:** CT124-3-3-BCD — Blockchain Development
 **Group:** 14 · Asia Pacific University of Technology and Innovation
-**Companion documents:** [`assumptions.md`](./assumptions.md) · [`design.md`](./design.md) · [`PRD.md`](./PRD.md)
+**Companion documents:** [`02_assumptions.md`](./02_assumptions.md) · [`03_design.md`](./03_design.md) · [`01_PRD.md`](./01_PRD.md)
 
 ### Group Members
 
@@ -26,6 +26,32 @@ VeriCred has three moving parts that must be running or provisioned before the a
 They are brought up in that order because each depends on the one before it. The application reads the contract address and ABI from files that only exist once a deployment has run, and it cannot start meaningfully against an unmigrated database.
 
 Total time from clean checkout to running application: roughly **10–15 minutes**, most of which is `npm install`.
+
+### The short version
+
+The whole procedure, in order, for a reader who wants the commands and will consult the sections below only when something needs explaining. `npm run dev:fresh` collapses the entire blockchain side — node, deploy, chain seed, application — into one command.
+
+```bash
+# 1. Install both dependency trees (1.0, 2.0)
+npm install
+cd frontend && npm install && cd ..
+
+# 2. Configure frontend/.env.local  (6.0)
+#    DATABASE_URL, NEXTAUTH_SECRET, NEXTAUTH_URL, ENCRYPTION_KEY
+cp frontend/.env.example frontend/.env.local   # then edit it
+
+# 3. Create and migrate the database — Prisma creates it if absent (5.1, 5.3)
+cd frontend && npx prisma migrate dev && cd ..
+
+# 4. Start everything: node -> deploy -> chain seed -> application (4.1)
+npm run dev:fresh
+
+# 5. In a SECOND terminal, once "VeriCred deployed to: 0x…" appears,
+#    seed the demo accounts (5.4). Needs the chain up — see the note in 4.1.
+cd frontend && npx prisma db seed
+```
+
+Then open **http://localhost:3000**. Steps 2 and 3 must precede step 4, because the application cannot start meaningfully against an unconfigured or unmigrated database.
 
 ---
 
@@ -84,27 +110,51 @@ Compilation writes to `artifacts/` and `cache/`, both git-ignored. Successful co
 
 ---
 
-## 4.0 Start the blockchain and deploy
+## 4.0 Start the blockchain and the application
 
-### 4.1 Start the node
+### 4.1 The one-command path
 
-In a terminal you will leave running:
+Everything the chain needs — start the node, wait for it, deploy the contract, seed demonstration credentials, then launch the application — is chained into a single script:
+
+```bash
+npm run dev:fresh
+```
+
+Run it from the **repository root**, and leave it running. Use it on a first run and after anything that wipes chain state.
+
+Once the chain is up (you will see `VeriCred deployed to: 0x…`), open a second terminal for the database steps in 5.0. If you have already applied migrations — which is also what creates the database (5.1) — the only remaining command is:
+
+```bash
+cd frontend && npx prisma db seed
+```
+
+> **Order matters here, and quietly.** `prisma db seed` funds and authorises the issuer's operator wallet **on-chain**, and both steps are best-effort: run with no node listening they are skipped with a warning rather than an error. The database still seeds and the demo accounts still work, but the issuer has no usable operator wallet, so deferred anchoring (a collection-link claim, or a wallet linked later) silently does nothing. If you seeded before starting the chain, just re-run `npx prisma db seed` — it is idempotent and will provision the wallet on the second pass.
+
+On later runs, when the contract is already deployed and you only want the node and the application back up:
+
+```bash
+npm run dev
+```
+
+The two differ because `dev:fresh` must be **chained rather than parallel**: the application's `predev` hook copies `frontend-config/`, which only exists once `deploy` has run. `npm run dev` starts the node and the application side by side and assumes that directory is already there.
+
+### 4.2 The same steps, run individually
+
+Useful when a step fails and you want to see which, or when you want to redeploy without restarting the node. Each command is one line of what `dev:fresh` chains.
+
+**Start the node** — in a terminal you will leave running:
 
 ```bash
 npm run node
 ```
 
-This starts a Hardhat node at `http://127.0.0.1:8545` (chain ID `31337`) and prints twenty pre-funded test accounts with their private keys. Leave this terminal open — closing it destroys all chain state.
+A Hardhat node at `http://127.0.0.1:8545` (chain ID `31337`), printing twenty pre-funded test accounts with their private keys. Closing this terminal destroys all chain state.
 
-### 4.2 Deploy the contract
-
-In a **second** terminal:
+**Deploy the contract** — in a second terminal:
 
 ```bash
 npm run deploy      # hardhat run scripts/deploy.js --network localhost
 ```
-
-Expected output:
 
 ```
 Network : localhost (chainId 31337)
@@ -121,37 +171,38 @@ Wrote frontend-config/contract.json and .env.local
 
 The deploy script does four things: deploys the bytecode, authorises Hardhat Account #1 as a second institution so the demonstration has a distinct issuer, writes `frontend-config/contract.json` (address, chain ID, ABI), and writes `frontend-config/.env.local`.
 
-**Record the deployed address.** You will see it again in `frontend/.env.local`.
-
-### 4.3 Seed demonstration credentials (optional)
+**Seed demonstration credentials on-chain** (optional):
 
 ```bash
-npm run seed        # seeds 4 demo credentials on-chain, revokes 1
+npm run seed        # 4 demo credentials, 1 revoked
 ```
 
-This populates the on-chain registry so `/verify` has something to find before you issue anything yourself.
+This populates the on-chain registry so `/verify` has something to find before you issue anything yourself. Note this is the *chain* seed; the *database* seed is a separate command in 5.4.
+
+**Start the application:**
+
+```bash
+cd frontend && npm run dev
+```
 
 ---
 
 ## 5.0 Provision the database
 
-### 5.1 Create the database
+### 5.1 The databases create themselves
 
-```bash
-createdb vericred
-```
+There is no manual creation step. Both databases are created for you:
 
-Or from `psql`:
+- **`vericred`** — `npx prisma migrate dev` (5.3) creates it. Prisma tries to connect, and on error `P1003` ("database does not exist") calls `createDatabase` before applying migrations, for PostgreSQL as for every other provider.
+- **`vericred_test`** — `npm run test` creates it. `src/test/global-setup.ts` runs once before any test file, connects to the `postgres` administrative database, issues `CREATE DATABASE`, tolerates `42P04` (already exists), and then applies migrations with `prisma migrate deploy`.
 
-```sql
-CREATE DATABASE vericred;
-```
+All you need is a running PostgreSQL server and a `DATABASE_URL` pointing at it.
 
-For the test suite, also create:
-
-```bash
-createdb vericred_test
-```
+> **The one case where this fails.** Prisma can only create a database if the role in your `DATABASE_URL` holds the `CREATEDB` privilege. The default `postgres` superuser does; a restricted role provisioned by a DBA may not. If `migrate dev` reports that it cannot create the database, either grant the privilege — `ALTER ROLE <your_role> CREATEDB;` — or create it by hand:
+>
+> ```bash
+> createdb vericred          # or, from psql:  CREATE DATABASE vericred;
+> ```
 
 ### 5.2 Configure the connection string
 
@@ -278,7 +329,7 @@ NEXT_PUBLIC_BLOCK_EXPLORER_URL=
 
 ### 6.4 Test environment
 
-`npm run test` in `frontend/` reads `.env.test`, which needs its own database and its own `ENCRYPTION_KEY` — without the latter, every issuance test returns 502.
+`npm run test` in `frontend/` reads `.env.test`, which needs its own `DATABASE_URL` and its own `ENCRYPTION_KEY` — without the latter, every issuance test returns 502. You do not need to create the database yourself; the test global setup creates and migrates it (5.1). It refuses to run against a non-local host, or against a database named `postgres`, so the URL must name a dedicated test database.
 
 ```dotenv
 DATABASE_URL=postgresql://postgres:password@localhost:5432/vericred_test
@@ -291,6 +342,8 @@ NEXTAUTH_URL=http://localhost:3000
 
 ## 7.0 Run the application
 
+If you used `npm run dev:fresh` (4.1) the application is already running. To start it on its own — the node and contract already being in place:
+
 ```bash
 cd frontend
 npm run dev
@@ -299,17 +352,6 @@ npm run dev
 The `predev` hook runs `scripts/copy-config.js` first, copying the ABI to `src/lib/abi.json` and merging the `NEXT_PUBLIC_*` values into `.env.local`. Then Next.js starts with Turbopack.
 
 Open **http://localhost:3000**.
-
-### 7.1 Running everything from one terminal
-
-Two orchestrated scripts exist at the repository root, using `concurrently`:
-
-```bash
-npm run dev          # Hardhat node + application in parallel
-npm run dev:fresh    # Cold start: node → wait-for-node → deploy → seed → application
-```
-
-Use `dev:fresh` on a first run or after wiping chain state. The two differ because `dev:fresh` must be **chained rather than parallel**: the application's `predev` hook copies `frontend-config/`, which only exists after `deploy` has run.
 
 ---
 
@@ -373,7 +415,7 @@ The shortest path to seeing the system work end-to-end.
 5. Copy the credential ID (format `VC-2026-XXXXXXXX`).
 6. Open a **private browsing window** — no account, no wallet — and visit `/verify/<credentialId>`. You should see the verification result with issuer, date, CID and transaction hash.
 
-> **Note on step 6 for revocation.** If you revoke the certificate and re-verify, the page will show "Revoked". Be aware that this verdict currently comes from the off-chain index only — the on-chain `revokeCredential` transaction is **not yet wired into the application**. See [`assumptions.md`](./assumptions.md) 7.1.
+> **Note on step 6 for revocation.** Revoking the certificate and re-verifying shows "Revoked". The revocation is also **anchored on-chain** where a permitted signer is available — the institution's operator wallet if it anchored the credential, otherwise `ADMIN_PRIVATE_KEY`. A certificate that was never anchored has nothing on-chain to revoke, so the revocation is recorded off-chain only and the interface says so rather than claiming success. See [`02_assumptions.md`](./02_assumptions.md) 7.1.
 
 ---
 
@@ -392,10 +434,10 @@ The shortest path to seeing the system work end-to-end.
 | Certificate download returns 502 in local development | The mock CID resolves to nothing on any gateway. | Expected without real Pinata credentials. The route fails honestly rather than falling back to a re-render, which would mask genuine retrieval failures. |
 | `P1001: Can't reach database server` | PostgreSQL is not running, or `DATABASE_URL` is wrong. | Start PostgreSQL; check host, port, user, password and database name. |
 | `prisma migrate dev` reports drift | The database was modified outside Prisma. | `npx prisma migrate reset` — **destroys all data** — then re-seed. |
-| Application tests fail on connection | `vericred_test` does not exist or `.env.test` is missing. | `createdb vericred_test` and create `.env.test` per 6.4. |
+| Application tests fail on connection | `.env.test` is missing, or its `DATABASE_URL` role lacks `CREATEDB`. | Create `.env.test` per 6.4. The test database itself is created automatically (5.1); if creation is refused, grant `CREATEDB` to the role. |
 | Signed in, but redirected to `/onboarding` repeatedly | An OAuth account has no username or linked wallet. | Complete the onboarding form. Both are mandatory for `USER` accounts. |
 | Wallet connects, then immediately signs you out | Historically caused by AppKit's `signOutOnAccountChange` defaults. | Already handled — both flags are set to `false`. If it recurs, check `lib/siwe-config.ts` has not been reverted. |
-| Dev server very slow to compile a route | Expected on first compile in development; `<Link>` does not prefetch in dev. | See [`dev-performance.md`](./dev-performance.md). Adding a Windows Defender exclusion for the repository is worth roughly 11%. |
+| Dev server very slow to compile a route | Expected on first compile in development; `<Link>` does not prefetch in dev. | See [`dev-performance.md`](./prds/dev-performance.md). Adding a Windows Defender exclusion for the repository is worth roughly 11%. |
 
 ---
 

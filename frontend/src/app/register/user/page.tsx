@@ -19,7 +19,7 @@ import { useWalletProof } from "@/hooks/use-wallet-proof";
 import { REGISTER_WALLET_MESSAGE } from "@/lib/wallet-messages";
 
 /**
- * Individual signup (docs/institution-registration-prd.md §6.1). Username and
+ * Individual signup (docs/prds/institution-registration-prd.md 6.1). Username and
  * a signature-verified wallet are required here, same as every other path
  * (Decision 9) — OAuth signups collect the same two things at /onboarding
  * instead, since their callback has no form step.

@@ -1,7 +1,7 @@
 # Encrypted certificate artifacts — design record
 
 Status: implemented
-Supersedes: nothing. Closes a gap between `PRD.md` / the Part 1 proposal and the code.
+Supersedes: nothing. Closes a gap between `01_PRD.md` / the Part 1 proposal and the code.
 
 ## What shipped
 
@@ -103,7 +103,7 @@ the better artifact:
 - **Mobile.** The comment this component carried since it was written admitted that some
   mobile browsers force a download rather than rendering a PDF inline. An image removes
   that class of problem outright.
-- **`og:image`.** `PRD.md` lists LinkedIn sharing as a Recipient feature and
+- **`og:image`.** `01_PRD.md` lists LinkedIn sharing as a Recipient feature and
   `/c/[credentialId]` has the button, but no social platform will accept a PDF as a
   preview image. A PNG makes the share card show the certificate.
 - **Caching.** A plain `<img>` with an `ETag` beats an `<iframe>` holding a PDF plugin.

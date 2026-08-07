@@ -54,7 +54,7 @@ async function upsertSeedUser(params: {
 }) {
   const existing = await prisma.user.findUnique({ where: { email: params.email } });
   // Login is blocked until `emailVerified` is set (see lib/auth-credentials.ts,
-  // docs/institution-registration-prd.md Decision 5). These two addresses are
+  // docs/prds/institution-registration-prd.md Decision 5). These two addresses are
   // provisioned by this script rather than claimed by a real person, so
   // there's nothing to prove — without this, the demo accounts documented in
   // CLAUDE.md could never sign in.

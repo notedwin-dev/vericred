@@ -22,8 +22,8 @@ interface RegisterInstitutionBody {
 /**
  * POST /api/auth/register/institution
  *
- * Self-service institution signup (docs/institution-registration-prd.md
- * §6.3). Creates User(role: USER) + Issuer(status: PENDING) -- NOT an
+ * Self-service institution signup (docs/prds/institution-registration-prd.md
+ * 6.3). Creates User(role: USER) + Issuer(status: PENDING) -- NOT an
  * active ISSUER yet (Decision 1). An admin must approve before the
  * institution wallet is authorised on-chain and role flips to ISSUER.
  */

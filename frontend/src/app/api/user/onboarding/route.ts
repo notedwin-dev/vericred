@@ -11,7 +11,7 @@ import { findWalletConflict } from "@/lib/wallet";
  *
  * Completes signup for an account created by an OAuth callback, which has no
  * form step to collect the username and wallet that every other path requires
- * up front (docs/institution-registration-prd.md Decision 9).
+ * up front (docs/prds/institution-registration-prd.md Decision 9).
  *
  * Applies both in one write: a half-finished account would just be sent
  * straight back to /onboarding by the layout gate anyway.

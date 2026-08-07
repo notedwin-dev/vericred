@@ -1311,7 +1311,7 @@ An issue arose during development that is worth documenting because its cause is
 
 The remedy was to scope both providers per route. `Web3Provider` is mounted only in the layouts of the six route segments that require contract access; `AppKitProvider` is reached exclusively through `next/dynamic` from the three components that use it.
 
-Two distinct measurements support this, and they must be kept separate because they were taken on different bundlers. Removing `AppKitProvider` from the root layout, measured on **webpack** with no other change, took the landing page from **9,166 modules to 1,147** and its first compile from **47.7s to 8.3s**. The 4.5-second figure comes from a separate **Turbopack** cold-isolate run whose corresponding "before" is **28.9s**, not 47.7s; pairing 47.7s with 4.5s would cross the two harnesses. A third of the original figure is attributable to neither change — switching bundler alone accounted for 47.7s → 27.1s. The ~900 kB reduction in shared First Load JS is independent of bundler. The full analysis and benchmark harness are recorded in `docs/dev-performance.md`.
+Two distinct measurements support this, and they must be kept separate because they were taken on different bundlers. Removing `AppKitProvider` from the root layout, measured on **webpack** with no other change, took the landing page from **9,166 modules to 1,147** and its first compile from **47.7s to 8.3s**. The 4.5-second figure comes from a separate **Turbopack** cold-isolate run whose corresponding "before" is **28.9s**, not 47.7s; pairing 47.7s with 4.5s would cross the two harnesses. A third of the original figure is attributable to neither change — switching bundler alone accounted for 47.7s → 27.1s. The ~900 kB reduction in shared First Load JS is independent of bundler. The full analysis and benchmark harness are recorded in `docs/prds/dev-performance.md`.
 
 Two further measures address perceived rather than actual latency. Every route provides a `loading.tsx`, establishing a Suspense boundary without which the App Router cannot commit a new URL until the server component payload resolves — leaving the address bar apparently frozen for the duration. Because that fallback nonetheless ships *inside* the payload the router is awaiting, it does not cover the interval between the click and the URL changing; a `LinkButton` component closes that final gap by swapping its label for a spinner on `useLinkStatus()`, which reacts to the click itself.
 
@@ -1814,7 +1814,7 @@ The claim that verification requires nothing of the verifier is the project's ce
 #### 8.1.1 Landing page
 
 ![Landing page hero](./images/01-landing-hero.jpg)
-**Figure 8.1 — `/` landing page.** Deliberately carries **no navigation bar** (`PRD.md` F1). The two calls to action separate the two audiences the system serves: "Verify a Credential" needs no account, "Get Started" leads to registration. The badge reads "Built on blockchain · Anchored to IPFS", which is the hybrid storage model stated in one line.
+**Figure 8.1 — `/` landing page.** Deliberately carries **no navigation bar** (`01_PRD.md` F1). The two calls to action separate the two audiences the system serves: "Verify a Credential" needs no account, "Get Started" leads to registration. The badge reads "Built on blockchain · Anchored to IPFS", which is the hybrid storage model stated in one line.
 
 ![Landing page how it works](./images/02-landing-how-it-works.jpg)
 **Figure 8.2 — `/` "How it works".** The three steps correspond exactly to the architecture of 2.0: *Issue* (render, encrypt, pin to IPFS), *Anchor* (write the CID on-chain), *Verify* (anyone, free, no account). The footer is the only chrome on the page.
@@ -1850,7 +1850,7 @@ The claim that verification requires nothing of the verifier is the project's ce
 **Figure 8.10 — `/register/institution`.** Note three institution-specific rules made visible: the contact email must be on the institution's own domain ("personal addresses (Gmail, Outlook…) are rejected"), and the wallet must be one "the institution controls, not a personal one — it becomes your on-chain issuing identity, you'll sign in with it every time, and it funds the gas for anchoring credentials." There is deliberately no OAuth option.
 
 ![Sign in](./images/10-login.jpg)
-**Figure 8.11 — `/login`.** Six sign-in methods in the order specified by `PRD.md`: WalletConnect first (primary), then GitHub/Google/LinkedIn, then email and password. The footer links institutions to their separate form.
+**Figure 8.11 — `/login`.** Six sign-in methods in the order specified by `01_PRD.md`: WalletConnect first (primary), then GitHub/Google/LinkedIn, then email and password. The footer links institutions to their separate form.
 
 ![Institution sign in](./images/22-login-institution.jpg)
 **Figure 8.12 — `/login/institution`.** The distinguishing rule is in the subtitle: "Institutions sign in with their password *and* their registered on-chain wallet." Unlike personal wallet-linking, which proves ownership once, an institution proves control of its key on **every** sign-in.
@@ -2081,7 +2081,7 @@ First, `@react-pdf` Flate-compresses its content streams. Consequently, `pdf.inc
 
 ### 9.5 Demonstration Scenario
 
-The following sequence exercises the complete system and corresponds to the demonstration flow specified in `docs/PRD.md`.
+The following sequence exercises the complete system and corresponds to the demonstration flow specified in `docs/01_PRD.md`.
 
 1. **Issue.** Sign in as the seeded issuer, create a template and a course, and issue a certificate. Observe the PDF being generated, encrypted, and pinned, and the credential being anchored on-chain from the connected wallet.
 2. **Verify.** In a private browsing window — no account, no wallet — visit `/verify/[credentialId]` and observe the "Valid" result together with the issuer, date, CID, and transaction hash.
@@ -2108,7 +2108,7 @@ There is deliberately no route through the application by which a user may becom
 
 Reproducing Pinata's CIDv1 requires matching its UnixFS parameters — chunker, layout, `rawLeaves`, directory wrapping — which Pinata does not document. Neither development nor continuous integration can discover the correct answer, because `lib/ipfs.ts` takes the mock branch without credentials. An assertion on the recomputed value would therefore constitute a production-only tripwire, failing every issuance at the moment real credentials were first configured and being discovered live.
 
-Accordingly, `computeCidV1` returns `null` rather than throwing, and a divergence is logged and persisted rather than treated as fatal. **No hard-failure mode is implemented**; a configuration flag of that kind is proposed in `docs/encrypted-certificates.md` and remains future work. **The consequence, stated plainly: the `method: "cid"` verification path is not exercised by continuous integration, which has no Pinata credentials.** It has, however, since been **validated against a real pin**: the live capture in 8.5 (Figure 8.32) shows `method: "cid"` verifying, with the stored `computedCid` equal to Pinata's `cid` exactly — confirming that the `rawLeaves: true` + CIDv1 + base32 + sha256 inference in `lib/cid.ts` is correct in practice. The caveat is therefore narrowed to CI coverage rather than to whether the mechanism works. The `contentHash` path, deterministic and identical across all environments, remains the default.
+Accordingly, `computeCidV1` returns `null` rather than throwing, and a divergence is logged and persisted rather than treated as fatal. **No hard-failure mode is implemented**; a configuration flag of that kind is proposed in `docs/prds/encrypted-certificates.md` and remains future work. **The consequence, stated plainly: the `method: "cid"` verification path is not exercised by continuous integration, which has no Pinata credentials.** It has, however, since been **validated against a real pin**: the live capture in 8.5 (Figure 8.32) shows `method: "cid"` verifying, with the stored `computedCid` equal to Pinata's `cid` exactly — confirming that the `rawLeaves: true` + CIDv1 + base32 + sha256 inference in `lib/cid.ts` is correct in practice. The caveat is therefore narrowed to CI coverage rather than to whether the mechanism works. The `contentHash` path, deterministic and identical across all environments, remains the default.
 
 A second, sharper limitation sits alongside it. `checkArtifactIntegrity` never compares against the stored `computedCid`: it recomputes a CID from the freshly fetched bytes and compares *that* against `cid`, using the stored column only as a truthiness gate to decide whether to attempt the stronger method at all. The column therefore records what was derived at issuance without functioning as a reference value at verification time.
 
@@ -2144,12 +2144,12 @@ The limitations below are of a different character from those above: each is a p
 
 - **Local deployment only.** The contract is deployed to a Hardhat node at chain 31337. Deployment to a public testnet would require a funded deployer account and a block explorer URL; the code path is otherwise unchanged, as the explorer link is rendered conditionally on `NEXT_PUBLIC_BLOCK_EXPLORER_URL` being set.
 - **`transferCredential` is not yet surfaced.** The contract implements wallet migration and it is covered by thirteen tests, but no front-end control currently invokes it; changing a linked wallet does not presently transfer existing credentials on-chain.
-- **No custody wallet on e-mail signup.** `docs/PRD.md` F2 anticipated generating a custody wallet for email-and-password users. The `custodyAddress` and `custodyKeyEnc` columns exist but nothing populates them; such users have no wallet until they link one.
+- **No custody wallet on e-mail signup.** `docs/01_PRD.md` F2 anticipated generating a custody wallet for email-and-password users. The `custodyAddress` and `custodyKeyEnc` columns exist but nothing populates them; such users have no wallet until they link one.
 - **Holder download requires real Pinata credentials.** In local development the mock CID resolves to nothing, so this path returns an honest HTTP 502 rather than silently falling back to a re-render.
 
 ### 10.8 Future Work
 
-In priority order: **adding an administrator revocation control** and fixing the non-functional "New Course" action on the administrator's issuer view (10.6); making institution approval recoverable on-chain, whether by a batching function on the contract or by a compensating `removeInstitution`; surfacing `transferCredential` in the settings interface so that wallet migration completes end-to-end; moving `getOperatorSigner` inside its callers' `try` blocks; calibrating `computeCidV1` against live pins and adding the hard-failure mode proposed in `docs/encrypted-certificates.md`; deploying to a public testnet with a block explorer configured; and moving `ENCRYPTION_KEY` and `ADMIN_PRIVATE_KEY` into a managed key service rather than environment variables.
+In priority order: **adding an administrator revocation control** and fixing the non-functional "New Course" action on the administrator's issuer view (10.6); making institution approval recoverable on-chain, whether by a batching function on the contract or by a compensating `removeInstitution`; surfacing `transferCredential` in the settings interface so that wallet migration completes end-to-end; moving `getOperatorSigner` inside its callers' `try` blocks; calibrating `computeCidV1` against live pins and adding the hard-failure mode proposed in `docs/prds/encrypted-certificates.md`; deploying to a public testnet with a block explorer configured; and moving `ENCRYPTION_KEY` and `ADMIN_PRIVATE_KEY` into a managed key service rather than environment variables.
 
 ---
 
@@ -2277,7 +2277,24 @@ The following records in `docs/` provide fuller treatment of requirements and de
 
 | Document | Subject |
 |---|---|
-| `docs/PRD.md` | Product requirements: user roles, features F1–F15, contract interface, demonstration flow |
-| `docs/encrypted-certificates.md` | Encrypted-artefact design: key custody, the privacy split, integrity methods, legacy rows |
-| `docs/institution-registration-prd.md` | Institution registration, wallet architecture, and the administrator approval flow |
-| `docs/dev-performance.md` | Provider-scoping analysis, benchmark harness, and before/after compilation measurements |
+| `docs/01_PRD.md` | Product requirements: user roles, features F1–F15, contract interface, demonstration flow |
+| `docs/prds/encrypted-certificates.md` | Encrypted-artefact design: key custody, the privacy split, integrity methods, legacy rows |
+| `docs/prds/institution-registration-prd.md` | Institution registration, wallet architecture, and the administrator approval flow |
+| `docs/prds/dev-performance.md` | Provider-scoping analysis, benchmark harness, and before/after compilation measurements |
+
+---
+
+### Appendix F — Contribution Matrix
+
+The group agreed an **equal division of credit, 25% per member**. The assignment brief specifies a group deliverable and defines no per-member weighting or individual mark, so an equal share is the group's declared position on how the work should be credited.
+
+The responsibilities below indicate where each member's effort was concentrated. They are not exclusive. The smart contract was revised repeatedly as front-end requirements emerged, design decisions were taken jointly, and the documentation set was reviewed by the whole group before submission.
+
+| Member | TP Number | Principal responsibilities | Share |
+|---|---|---|---|
+| Ng Jian Hwa | TP070698 | Front-end implementation — the Next.js application, React components, routing, authentication and wallet integration. Subsequent system design: the encrypted-artefact model, institution registration and approval, deferred anchoring via per-issuer operator wallets, and integrity checking. Contract revisions arising from front-end requirements. | 25% |
+| Leanard Tang YiShiun | TP070029 | Initial `VeriCred.sol` implementation — the credential registry, access-control model, issuance and revocation semantics — which the group then revised iteratively during the front-end build. Hardhat contract test suite. | 25% |
+| Low Teck Chi | TP064234 | Documentation: the setup guide (`04_setup.md`), including the environment reference and troubleshooting, and the assumptions document (`02_assumptions.md`). Part 1 proposal research and write-up. | 25% |
+| Tan Jun Hong | TP071266 | Documentation: the system design document (`03_design.md`), and compilation and review of this implementation report. Demonstration preparation. | 25% |
+
+**A note on repository history.** The commit log records implementation work only — it is almost entirely front-end changes and merge commits authored by Ng Jian Hwa, together with the initial contract from Leanard Tang YiShiun. Report and documentation work was not carried out through version control. Commit authorship therefore measures who implemented, not how the responsibilities above were divided.

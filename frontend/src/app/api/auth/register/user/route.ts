@@ -21,7 +21,7 @@ interface RegisterBody {
 /**
  * POST /api/auth/register/user
  *
- * Individual signup. Per docs/institution-registration-prd.md Decision 9,
+ * Individual signup. Per docs/prds/institution-registration-prd.md Decision 9,
  * username and a signature-verified wallet are mandatory here (not deferred
  * to a settings page) — this replaces /api/auth/register.
  */

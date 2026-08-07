@@ -64,7 +64,7 @@ export async function renderCertificatePdf(params: RenderCertificateParams): Pro
  * a document: anyone who pulls the artifact off a public gateway gets an
  * opaque blob. That is what lets the PDF carry the award grade, which the
  * public verify API and the public PNG preview both withhold — the privacy
- * split the proposal describes. See docs/encrypted-certificates.md.
+ * split the proposal describes. See docs/prds/encrypted-certificates.md.
  *
  * The content key is fresh per certificate and is wrapped with ENCRYPTION_KEY
  * for storage, mirroring `lib/operator-wallet.ts`. The credentialId is bound
@@ -96,7 +96,7 @@ export async function generateCertificate(
     if (!mock && computedCid && computedCid !== cid) {
       console.error(
         "[cid] local CID does not match Pinata's for %s: computed=%s pinata=%s. " +
-          "Integrity checks will fall back to contentHash. See docs/encrypted-certificates.md.",
+          "Integrity checks will fall back to contentHash. See docs/prds/encrypted-certificates.md.",
         params.credentialId,
         computedCid,
         cid

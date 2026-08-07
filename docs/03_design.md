@@ -2,7 +2,7 @@
 
 **Module:** CT124-3-3-BCD — Blockchain Development
 **Group:** 14 · Asia Pacific University of Technology and Innovation
-**Companion documents:** [`assumptions.md`](./assumptions.md) · [`setup.md`](./setup.md) · [`PRD.md`](./PRD.md)
+**Companion documents:** [`02_assumptions.md`](./02_assumptions.md) · [`04_setup.md`](./04_setup.md) · [`01_PRD.md`](./01_PRD.md)
 
 ### Group Members
 
@@ -531,7 +531,7 @@ Instead, `CertificateShare` records a token, optional expiry, revocation timesta
 
 ## 10.0 Known divergences between design and implementation
 
-Stated here rather than left for a reader to discover. The full treatment is in [`assumptions.md`](./assumptions.md) 7.
+Stated here rather than left for a reader to discover. The full treatment is in [`02_assumptions.md`](./02_assumptions.md) 7.
 
 | # | Design intent | Actual behaviour |
 |---|---|---|

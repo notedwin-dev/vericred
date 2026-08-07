@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowRight, Building2, ShieldCheck, User } from "lucide-react";
 
 /**
- * The split-screen chooser (docs/institution-registration-prd.md Decision 8).
+ * The split-screen chooser (docs/prds/institution-registration-prd.md Decision 8).
  * Deliberately carries no form fields of its own — the two paths collect
  * genuinely different things, so each gets a focused page with its own URL,
  * back-button behaviour, and bookmark.

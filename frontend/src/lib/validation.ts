@@ -5,7 +5,7 @@ export function isValidUsername(username: string): boolean {
 }
 
 /**
- * Soft anti-fraud signal for institution registration (VeriCred docs/
+ * Soft anti-fraud signal for institution registration (VeriCred docs/prds/
  * institution-registration-prd.md Decision 4a) — not a security boundary.
  * Admin approval is the actual authority; a blocklisted domain can still be
  * approved at the admin's discretion, and a domain missing from this list

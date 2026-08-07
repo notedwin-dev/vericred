@@ -17,7 +17,7 @@ import {
  * breaks deferred anchoring. These tests exist to make that breakage loud.
  *
  * Binary support for certificate artifacts is added alongside this API, not in
- * place of it — see docs/encrypted-certificates.md.
+ * place of it — see docs/prds/encrypted-certificates.md.
  */
 describe("crypto — string API (operator wallet keys)", () => {
   const PRIVATE_KEY = "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";

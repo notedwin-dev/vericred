@@ -8,7 +8,7 @@ import { Footer } from "@/components/layout/footer";
 // lazily in their own chunk (which carries createAppKit with it). Mounting a
 // provider here instead would put the whole AppKit + Lit graph back into every
 // authenticated route's compilation unit — ~20s of dev compile on /dashboard
-// and /issuer. See docs/dev-performance.md.
+// and /issuer. See docs/prds/dev-performance.md.
 
 export default async function AuthenticatedLayout({
   children,

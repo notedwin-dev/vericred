@@ -4,7 +4,7 @@
 **Team:** Group 14, APU
 **Status:** Design complete, pending implementation
 **Date:** 2026-08-04
-**Supplements:** [`PRD.md`](./PRD.md) F2 (Authentication), User Roles
+**Supplements:** [`01_PRD.md`](../01_PRD.md) F2 (Authentication), User Roles
 
 ---
 

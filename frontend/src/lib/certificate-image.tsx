@@ -48,7 +48,7 @@ async function loadFonts(): Promise<[ArrayBuffer, ArrayBuffer]> {
  * before being pinned to IPFS and is never served to anyone without a key —
  * so this deliberately renders a different, reduced document. Notably it takes
  * no `grade`: award classification exists only inside the encrypted artifact.
- * See docs/encrypted-certificates.md.
+ * See docs/prds/encrypted-certificates.md.
  *
  * A PNG rather than the PDF because the public page must not depend on an IPFS
  * gateway once the pinned file is ciphertext, and because an image works where

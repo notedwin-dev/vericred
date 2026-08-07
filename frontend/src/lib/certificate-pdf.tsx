@@ -18,7 +18,7 @@ export interface CertificatePdfProps {
   /**
    * Award classification. Present only on the encrypted artifact — the public
    * PNG preview (lib/certificate-image.tsx) never receives it, and the public
-   * verify API never returns it. See docs/encrypted-certificates.md.
+   * verify API never returns it. See docs/prds/encrypted-certificates.md.
    */
   grade?: string;
 }

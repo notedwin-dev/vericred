@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
  * GET /api/institutions/pending
  *
  * Admin-only. Lists institution registration requests awaiting approval
- * (docs/institution-registration-prd.md §6.6).
+ * (docs/prds/institution-registration-prd.md 6.6).
  */
 export async function GET() {
   const session = await auth();

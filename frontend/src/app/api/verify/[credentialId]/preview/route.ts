@@ -24,7 +24,7 @@ const TEMPLATE_VERSION = 1;
  * would hand a stranger an encrypted blob — so the public view is regenerated
  * from the database instead. It is deliberately a reduced document: `grade`
  * lives only inside the encrypted artifact and never appears here. See
- * docs/encrypted-certificates.md.
+ * docs/prds/encrypted-certificates.md.
  *
  * Unauthenticated by design (this is the share target), which is why the ETag
  * is computed *before* rendering: a repeat visitor or CDN gets a 304 without

@@ -17,7 +17,7 @@
  * This is still best-effort: Pinata does not document its DAG parameters and
  * CI cannot check against a live pin, so a mismatch is possible. It is handled
  * by degrading to the sha256 `contentHash` rather than failing — which is why
- * this returns null instead of throwing. See docs/encrypted-certificates.md.
+ * this returns null instead of throwing. See docs/prds/encrypted-certificates.md.
  */
 export async function computeCidV1(bytes: Buffer): Promise<string | null> {
   try {

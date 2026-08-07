@@ -52,7 +52,7 @@ export default function RootLayout({
               compile from ~8s to ~48s.
 
               Both are mounted per-route instead — see
-              providers/appkit-provider.tsx and docs/dev-performance.md.
+              providers/appkit-provider.tsx and docs/prds/dev-performance.md.
             */}
             {children}
             <Toaster position="top-right" richColors closeButton />

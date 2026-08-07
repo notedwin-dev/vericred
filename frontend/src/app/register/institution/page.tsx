@@ -13,7 +13,7 @@ import { useWalletProof } from "@/hooks/use-wallet-proof";
 import { REGISTER_INSTITUTION_WALLET_MESSAGE } from "@/lib/wallet-messages";
 
 /**
- * Institution signup (docs/institution-registration-prd.md §6.3).
+ * Institution signup (docs/prds/institution-registration-prd.md 6.3).
  *
  * No OAuth here on purpose: institutions sign in with password AND a wallet
  * signature (Decision 4), which an OAuth session can't satisfy. The wallet

@@ -12,7 +12,7 @@ import { findWalletConflict } from "@/lib/wallet";
  * Links a wallet address to the authenticated user's account. A `signature`
  * (over `message`) is required and verified against the claimed address,
  * so the user always proves ownership of the wallet before it's attached
- * (docs/institution-registration-prd.md Decision 9a).
+ * (docs/prds/institution-registration-prd.md Decision 9a).
  *
  * Also retroactively anchors any of this user's certificates that were
  * left without a wallet: unclaimed PENDING ones issued straight to their

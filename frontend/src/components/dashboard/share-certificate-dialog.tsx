@@ -43,7 +43,7 @@ const EXPIRY_OPTIONS = [
  * The link carries a revocable grant, not the decryption key — the content key
  * never leaves the server, which is what makes "withdraw" actually withdraw
  * access rather than politely ask someone to forget a URL. See
- * docs/encrypted-certificates.md (D3).
+ * docs/prds/encrypted-certificates.md (D3).
  */
 export function ShareCertificateDialog({
   certificateId,
