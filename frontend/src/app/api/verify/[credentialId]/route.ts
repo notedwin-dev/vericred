@@ -25,17 +25,19 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
   let onChain = false;
   let valid = false;
   let cid: string | undefined;
+  let chainCid: string | undefined;
   let issuer: string | undefined;
   let issuedAt: number | undefined;
 
   try {
     const contract = getReadOnlyContract();
-    const [chainExists, chainValid, chainCid, chainIssuer, chainIssuedAt] =
+    const [chainExists, chainValid, chainCidValue, chainIssuer, chainIssuedAt] =
       await contract.verifyCredential(credentialId);
 
     if (chainExists) {
       onChain = true;
       valid = chainValid;
+      chainCid = chainCidValue || undefined;
       cid = chainCid;
       issuer = chainIssuer;
       issuedAt = Number(chainIssuedAt);
@@ -69,12 +71,43 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
   // ever true when `onChain` is, so no need to check both.)
   const combinedValid = valid && certificate?.status !== "REVOKED";
 
+  /**
+   * Whether the CID anchored on-chain and the one in our own index agree.
+   *
+   * The chain value previously overwrote the database one with no comparison,
+   * so an off-chain row whose `cid` had been altered still rendered as a
+   * perfectly valid credential and nothing anywhere noticed. The contract's
+   * own documentation expects the caller to check the CID rather than trust
+   * it, so reporting this is the minimum honest behaviour.
+   *
+   * Deliberately does *not* affect `valid`. The chain is authoritative and a
+   * divergence is far more likely to be an administrative slip in the mutable
+   * index than evidence the anchored credential is bad — invalidating a
+   * genuinely anchored certificate over it would be the worse failure. The UI
+   * surfaces the warning instead.
+   */
+  const dbCid = certificate?.cid ?? undefined;
+  const cidAgreement: "match" | "mismatch" | "chain-only" | "db-only" | "none" =
+    chainCid && dbCid ? (chainCid === dbCid ? "match" : "mismatch") : chainCid ? "chain-only" : dbCid ? "db-only" : "none";
+
+  if (cidAgreement === "mismatch") {
+    console.error(
+      "[verify] CID divergence for %s: chain=%s db=%s — the off-chain index disagrees with what was anchored.",
+      credentialId,
+      chainCid,
+      dbCid
+    );
+  }
+
   return NextResponse.json({
     exists: true,
     onChain,
     valid: combinedValid,
     credentialId,
     cid,
+    chainCid,
+    dbCid,
+    cidAgreement,
     issuer,
     issuedAt,
     txHash: certificate?.txHash ?? undefined,

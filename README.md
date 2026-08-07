@@ -175,7 +175,7 @@ The contract config (`NEXT_PUBLIC_CONTRACT_ADDRESS`, `NEXT_PUBLIC_CHAIN_ID`, `NE
 
 Design rules: credential IDs can be anchored exactly once (no overwrites), revocation never deletes records, `exists` and `valid` are tracked separately, and removing an institution does not void its past credentials.
 
-See `CLAUDE.md` for the full technical guide and `PRD.md` for the complete feature list (F1–F15) and demo flow.
+See `CLAUDE.md` for the full technical guide and [`docs/PRD.md`](./docs/PRD.md) for the complete feature list (F1–F15) and demo flow.
 
 ## User Roles
 

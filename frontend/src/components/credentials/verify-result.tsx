@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { CertificatePreview } from "@/components/credentials/certificate-preview";
+import { IntegrityBadge } from "@/components/credentials/integrity-badge";
 import { formatAddress, formatTimestamp } from "@/lib/utils";
 import { getExplorerTxUrl } from "@/lib/config";
 import type { VerifyApiResult } from "@/types/verify";
@@ -120,10 +121,19 @@ export function VerifyResult({ result }: { result: VerifyApiResult }) {
         <CardContent className="flex flex-col gap-4">
           <Separator />
 
-          {status === "PENDING" && (
+          {status === "PENDING" && result.txHash && (
+            <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm dark:border-amber-800 dark:bg-amber-950/40">
+              This certificate has an anchoring transaction on record, but the blockchain node
+              has no such transaction. On a local development chain that means the node was
+              restarted, discarding previously anchored credentials; the certificate needs
+              re-anchoring before it will verify again.
+            </p>
+          )}
+
+          {status === "PENDING" && !result.txHash && (
             <p className="rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
-              This certificate has been issued and its PDF is pinned to IPFS — untamperable
-              from this point on — but nobody has claimed it yet, and it isn&apos;t
+              This certificate has been issued and its encrypted PDF is pinned to IPFS —
+              untamperable from this point on — but nobody has claimed it yet, and it isn&apos;t
               blockchain-verified. The recipient completes both steps by signing in and
               claiming it from their dashboard.
             </p>
@@ -199,15 +209,21 @@ export function VerifyResult({ result }: { result: VerifyApiResult }) {
             </Button>
           )}
 
-          {result.cid && (
+          {/* Not gated on the CID — the preview renders from Postgres, so an
+              issued-but-unanchored credential still shows one. The CID is only
+              displayed when there is one to show. */}
+          {result.exists && (
             <>
               <Separator />
               <div className="flex flex-col gap-2">
                 <span className="text-xs font-medium text-muted-foreground">Certificate Document</span>
-                <CertificatePreview cid={result.cid} />
-                <code className="w-fit rounded-md bg-muted px-2 py-1 text-xs break-all">
-                  {result.cid}
-                </code>
+                <CertificatePreview credentialId={result.credentialId} cid={result.cid} />
+                {result.cid && (
+                  <code className="w-fit rounded-md bg-muted px-2 py-1 text-xs break-all">
+                    {result.cid}
+                  </code>
+                )}
+                <IntegrityBadge credentialId={result.credentialId} />
               </div>
             </>
           )}

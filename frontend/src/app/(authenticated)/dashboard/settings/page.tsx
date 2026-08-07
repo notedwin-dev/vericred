@@ -2,18 +2,29 @@
 
 import { Suspense, useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import dynamic from "next/dynamic";
 import { signIn, useSession } from "next-auth/react";
 import { toast } from "sonner";
-import { Loader2, Wallet, Unplug, Copy, Camera, Link2 } from "lucide-react";
+import { Loader2, Camera, Link2, Unplug } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { GitHubIcon, GoogleIcon, LinkedInIcon } from "@/components/icons/brand-icons";
-import { useAppKitWallet } from "@/hooks/use-appkit-wallet";
-import { formatAddress } from "@/lib/utils";
+import { LinkedWalletInfo } from "@/components/dashboard/linked-wallet-info";
+
+/**
+ * Loaded lazily on purpose: this page's only route to @reown/appkit. Eager
+ * import put the whole AppKit + Lit graph in this route's compilation unit.
+ * See docs/dev-performance.md.
+ */
+const AppKitWalletSection = dynamic(
+  () => import("@/components/dashboard/appkit-wallet-section"),
+  { ssr: false, loading: () => <Skeleton className="h-16 w-full rounded-md" /> }
+);
 
 const WALLETCONNECT_CONFIGURED = Boolean(process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID);
 
@@ -495,72 +506,6 @@ function ConnectedAccountsSection({
   );
 }
 
-function AppKitWalletSection({
-  linkedWallet,
-  onWalletConnected,
-}: {
-  linkedWallet: string | null;
-  onWalletConnected: () => void;
-}) {
-  const { address, isConnected, openModal, disconnect } = useAppKitWallet();
-
-  // The AppKit modal drives its own SIWE sign-in/link flow internally (see
-  // lib/siwe-config.ts) — once it reports a connected address, that flow has
-  // already resolved, so refresh the profile to pick up the newly linked wallet.
-  useEffect(() => {
-    if (isConnected && address) onWalletConnected();
-  }, [isConnected, address, onWalletConnected]);
-
-  async function handleConnect() {
-    try {
-      await openModal();
-    } catch {
-      toast.error("Failed to open wallet modal.");
-    }
-  }
-
-  function handleDisconnect() {
-    disconnect();
-    toast.success("Wallet disconnected.");
-  }
-
-  return (
-    <>
-      {isConnected && address ? (
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-full bg-muted">
-              <Wallet className="size-5 text-muted-foreground" />
-            </div>
-            <div>
-              <p className="text-sm font-medium font-mono">{formatAddress(address, 6)}</p>
-              <p className="text-xs text-muted-foreground">Connected</p>
-            </div>
-          </div>
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={handleDisconnect}>
-            <Unplug className="size-3.5" />
-            Disconnect
-          </Button>
-        </div>
-      ) : (
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-sm font-medium">No wallet connected</p>
-            <p className="text-xs text-muted-foreground">
-              Connect a wallet to interact with on-chain credentials.
-            </p>
-          </div>
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={handleConnect}>
-            <Wallet className="size-3.5" />
-            Connect
-          </Button>
-        </div>
-      )}
-
-      <LinkedWalletInfo address={linkedWallet} />
-    </>
-  );
-}
 
 function StaticWalletSection({ linkedWallet }: { linkedWallet: string | null }) {
   return (
@@ -576,29 +521,3 @@ function StaticWalletSection({ linkedWallet }: { linkedWallet: string | null }) 
   );
 }
 
-function LinkedWalletInfo({ address }: { address: string | null }) {
-  if (!address) return null;
-
-  return (
-    <>
-      <Separator />
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <p className="text-xs text-muted-foreground">Linked wallet (on-chain identity)</p>
-          <p className="text-sm font-mono">{formatAddress(address, 8)}</p>
-        </div>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Copy address"
-          onClick={() => {
-            navigator.clipboard.writeText(address);
-            toast.success("Address copied.");
-          }}
-        >
-          <Copy className="size-3.5" />
-        </Button>
-      </div>
-    </>
-  );
-}

@@ -11,3 +11,7 @@ frontend/node_modules/
 frontend/.next/
 frontend/.env.local
 frontend/src/lib/abi.json
+
+# Local dev scratch / benchmark output
+frontend/devrun.txt
+frontend/scripts/.perf-results/

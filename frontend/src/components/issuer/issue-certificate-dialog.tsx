@@ -97,6 +97,7 @@ function SingleIssueForm({
   const [recipientName, setRecipientName] = useState("");
   const [recipientEmail, setRecipientEmail] = useState("");
   const [walletAddress, setWalletAddress] = useState("");
+  const [grade, setGrade] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -108,6 +109,7 @@ function SingleIssueForm({
     setRecipientName("");
     setRecipientEmail("");
     setWalletAddress("");
+    setGrade("");
     setExpiresAt("");
   }
 
@@ -123,6 +125,7 @@ function SingleIssueForm({
           recipientEmail: recipientEmail || undefined,
           courseId,
           walletAddress: walletAddress || undefined,
+          grade: grade || undefined,
           expiresAt: expiresAt ? new Date(expiresAt).toISOString() : undefined,
         }),
       });
@@ -206,6 +209,20 @@ function SingleIssueForm({
         <p className="text-xs text-muted-foreground">
           Leave blank if unknown yet — the certificate is anchored automatically once the
           recipient links or claims with a wallet.
+        </p>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="grade">Grade / classification (optional)</Label>
+        <Input
+          id="grade"
+          placeholder="First Class Honours"
+          maxLength={64}
+          value={grade}
+          onChange={(e) => setGrade(e.target.value)}
+        />
+        <p className="text-xs text-muted-foreground">
+          Appears on the certificate document, which is encrypted before it is stored. It is
+          not shown on the public verification page.
         </p>
       </div>
       <div className="flex flex-col gap-1.5">

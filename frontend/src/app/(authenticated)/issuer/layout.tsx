@@ -1,6 +1,13 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
+import { Web3Provider } from "@/providers/web3-provider";
 
+/**
+ * The issue-certificate dialog signs issueCredential through useContract,
+ * which reads Web3Provider's context. Scoped to /issuer rather than the shared
+ * (authenticated) layout so /dashboard doesn't compile ethers — see
+ * docs/dev-performance.md.
+ */
 export default async function IssuerLayout({
   children,
 }: {
@@ -12,5 +19,5 @@ export default async function IssuerLayout({
     redirect("/dashboard");
   }
 
-  return <>{children}</>;
+  return <Web3Provider>{children}</Web3Provider>;
 }

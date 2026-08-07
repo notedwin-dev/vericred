@@ -3,8 +3,7 @@ import { Prisma } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isAllowedAvatarUrl } from "@/lib/config";
-
-const USERNAME_RE = /^[a-zA-Z0-9_-]{3,30}$/;
+import { isValidUsername } from "@/lib/validation";
 
 /**
  * GET /api/user/profile
@@ -77,9 +76,9 @@ export async function PATCH(request: NextRequest) {
       data.username = null;
     } else {
       const lower = body.username.toLowerCase();
-      if (!USERNAME_RE.test(lower)) {
+      if (!isValidUsername(lower)) {
         return NextResponse.json(
-          { error: "Username must be 3-30 characters (letters, numbers, hyphens, underscores)" },
+          { error: "Username must be 3-32 characters (lowercase letters, numbers, hyphens, underscores)" },
           { status: 400 }
         );
       }

@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isAddress, Wallet, JsonRpcProvider } from "ethers";
+import { isAddress } from "ethers";
 import { auth } from "@/lib/auth";
-import { getReadOnlyContract, getSignerContract } from "@/lib/contract";
+import { getAdminSigner, getReadOnlyContract, getSignerContract } from "@/lib/contract";
 import { parseContractError } from "@/lib/errors";
-import { RPC_URL } from "@/lib/config";
 import type { InstitutionDTO } from "@/types";
 
 /**
@@ -62,13 +61,6 @@ export async function GET() {
     console.error("Failed to load institutions:", error);
     return NextResponse.json({ error: parseContractError(error) }, { status: 500 });
   }
-}
-
-function getAdminSigner() {
-  const privateKey = process.env.ADMIN_PRIVATE_KEY;
-  if (!privateKey) return null;
-  const provider = new JsonRpcProvider(RPC_URL);
-  return new Wallet(privateKey, provider);
 }
 
 /**

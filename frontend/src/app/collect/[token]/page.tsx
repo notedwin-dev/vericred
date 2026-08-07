@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { use, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { ShieldCheck, Loader2, Building2, CheckCircle2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { LinkButton } from "@/components/ui/link-button";
 
 interface CollectionLinkView {
   token: string;
@@ -29,7 +29,6 @@ export default function CollectPage({
 }) {
   const { token } = use(params);
   const { status } = useSession();
-  const router = useRouter();
 
   const [link, setLink] = useState<CollectionLinkView | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -124,9 +123,9 @@ export default function CollectPage({
               {link.active && status === "unauthenticated" && (
                 <div className="flex w-full flex-col gap-2">
                   <p className="text-sm text-muted-foreground">Sign in to claim this certificate.</p>
-                  <Button render={<Link href={`/login?callbackUrl=/collect/${token}`} />} nativeButton={false} className="w-full">
+                  <LinkButton href={`/login?callbackUrl=/collect/${token}`} className="w-full">
                     Sign in to claim
-                  </Button>
+                  </LinkButton>
                 </div>
               )}
 
@@ -152,12 +151,12 @@ export default function CollectPage({
                 </p>
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" onClick={() => router.push("/dashboard")}>
+                <LinkButton href="/dashboard" variant="outline">
                   Go to Dashboard
-                </Button>
-                <Button render={<Link href={`/c/${encodeURIComponent(claimed.credentialId)}`} />} nativeButton={false}>
+                </LinkButton>
+                <LinkButton href={`/c/${encodeURIComponent(claimed.credentialId)}`}>
                   View Credential
-                </Button>
+                </LinkButton>
               </div>
             </div>
           )}

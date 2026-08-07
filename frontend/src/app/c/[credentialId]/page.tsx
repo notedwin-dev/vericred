@@ -8,6 +8,7 @@ import {
   ArrowLeft,
   Blocks,
   ExternalLink,
+  AlertTriangle,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,7 @@ import { Separator } from "@/components/ui/separator";
 import { StatusBadge } from "@/components/credentials/status-badge";
 import { CredentialQr } from "@/components/credentials/credential-qr";
 import { CertificatePreview } from "@/components/credentials/certificate-preview";
+import { IntegrityBadge } from "@/components/credentials/integrity-badge";
 import { LinkedInIcon } from "@/components/icons/brand-icons";
 import { PublicAuthAction } from "@/components/layout/public-auth-action";
 import { useCredential } from "@/hooks/use-credential";
@@ -148,12 +150,25 @@ export default function PublicCredentialPage({
                 </div>
               </div>
 
-              {result.cid && (
+              {/* Gated on the record existing, not on a CID: the preview is
+                  rendered from Postgres, so it works for a credential that has
+                  been issued but not yet anchored. */}
+              {result.exists && (
                 <>
                   <Separator />
                   <div className="flex flex-col gap-3">
                     <h2 className="text-sm font-medium">Certificate Document</h2>
-                    <CertificatePreview cid={result.cid} />
+                    <CertificatePreview credentialId={decodedId} cid={result.cid} />
+                    {result.cidAgreement === "mismatch" && (
+                      <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-800 dark:bg-amber-950/40">
+                        <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+                        <span className="text-muted-foreground">
+                          The fingerprint recorded off-chain differs from the one anchored on the
+                          blockchain. The blockchain record is authoritative.
+                        </span>
+                      </div>
+                    )}
+                    <IntegrityBadge credentialId={decodedId} />
                   </div>
                 </>
               )}
@@ -191,9 +206,16 @@ export default function PublicCredentialPage({
                   </div>
                 ) : (
                   <p className="rounded-lg bg-muted/50 p-4 text-sm text-muted-foreground">
-                    {result.certificate?.status === "CLAIMED"
-                      ? "Not yet anchored on-chain. The recipient has claimed this certificate — their account and email are confirmed — but blockchain verification completes once they link a wallet."
-                      : "Not yet anchored on-chain. This certificate's PDF is already pinned to IPFS — the fingerprint above won't change — but nobody has claimed it yet. Blockchain verification completes once the recipient signs in and claims it."}
+                    {result.txHash
+                      ? // A recorded transaction the chain has never heard of. On a
+                        // local Hardhat node this is almost always a node restart,
+                        // which discards every anchored credential while the
+                        // off-chain rows survive. Saying "nobody has claimed it"
+                        // here would be flatly wrong — it was claimed and anchored.
+                        "This certificate was anchored on-chain, but the blockchain node has no record of that transaction. On a local development chain this means the node was restarted, which discards previously anchored credentials — re-anchor it to restore verification."
+                      : result.certificate?.status === "CLAIMED"
+                        ? "Not yet anchored on-chain. The recipient has claimed this certificate — their account and email are confirmed — but blockchain verification completes once they link a wallet."
+                        : "Not yet anchored on-chain. This certificate's encrypted PDF is already pinned to IPFS — the fingerprint above won't change — but nobody has claimed it yet. Blockchain verification completes once the recipient signs in and claims it."}
                   </p>
                 )}
               </div>

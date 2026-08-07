@@ -1,13 +1,10 @@
-import { randomBytes } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { sendVerificationEmail } from "@/lib/email";
+import { issueEmailVerification, VERIFICATION_RESEND_COOLDOWN_MS } from "@/lib/email-verification";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
-const RESEND_COOLDOWN_MS = 60 * 1000; // 1 minute
 
 /**
  * POST /api/user/email
@@ -40,11 +37,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 });
   }
 
-  // `User.email` is only ever written once verified, but a credentials
-  // registration (see /api/auth/register) sets it immediately without
-  // setting emailVerified — so any existing row with this email is a real
-  // collision, not just verified ones, or promoting this pendingEmail
-  // later would fail the column's unique constraint.
+  // On this path `User.email` is only ever written once verified, but a
+  // credentials registration (see /api/auth/register/user) sets it
+  // immediately without setting emailVerified — so any existing row with
+  // this email is a real collision, not just verified ones, or promoting
+  // this pendingEmail later would fail the column's unique constraint.
   const existing = await prisma.user.findFirst({ where: { email } });
   if (existing && existing.id !== session.user.id) {
     return NextResponse.json({ error: "Email is already in use" }, { status: 409 });
@@ -53,7 +50,7 @@ export async function POST(request: NextRequest) {
   const identifier = session.user.id;
 
   const recentToken = await prisma.verificationToken.findFirst({
-    where: { identifier, createdAt: { gt: new Date(Date.now() - RESEND_COOLDOWN_MS) } },
+    where: { identifier, createdAt: { gt: new Date(Date.now() - VERIFICATION_RESEND_COOLDOWN_MS) } },
   });
   if (recentToken) {
     return NextResponse.json(
@@ -62,11 +59,10 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const token = randomBytes(32).toString("hex");
-  const verifyUrl = new URL(`/api/user/email/verify?token=${token}`, request.nextUrl.origin);
-
+  // Send before staging pendingEmail, so a delivery failure leaves the
+  // account exactly as it was rather than half-way through an email change.
   try {
-    await sendVerificationEmail(email, verifyUrl.toString());
+    await issueEmailVerification(identifier, email, request.nextUrl.origin);
   } catch (error) {
     console.error("Failed to send verification email:", error);
     return NextResponse.json({ error: "Failed to send verification email. Please try again later." }, { status: 503 });
@@ -80,11 +76,6 @@ export async function POST(request: NextRequest) {
       pendingEmail: email,
       ...(passwordHash ? { passwordHash } : {}),
     },
-  });
-
-  await prisma.verificationToken.deleteMany({ where: { identifier } });
-  await prisma.verificationToken.create({
-    data: { identifier, token, expires: new Date(Date.now() + TOKEN_TTL_MS) },
   });
 
   return NextResponse.json({ pendingEmail: email });

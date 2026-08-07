@@ -3,7 +3,7 @@ import { isAddress } from "ethers";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateCredentialId } from "@/lib/credential";
-import { generateCertificate } from "@/lib/generate-certificate";
+import { generateCertificate, type GeneratedCertificate } from "@/lib/generate-certificate";
 import type { BatchIssueCertificateRow } from "@/types";
 
 const MAX_ROWS = 100;
@@ -94,23 +94,35 @@ export async function POST(request: NextRequest) {
     }
 
     const issuedAt = new Date();
-    let cid: string;
+    const grade =
+      typeof row.grade === "string" && row.grade.trim() ? row.grade.trim().slice(0, 64) : undefined;
+    let artifact: GeneratedCertificate;
     try {
-      const generated = await generateCertificate({
+      artifact = await generateCertificate({
         credentialId,
         recipientName,
         courseName: course.name,
         issuerName: course.issuer.organizationName,
         templateLayout,
         issuedAt,
+        grade,
         verifyUrl: new URL(`/verify/${encodeURIComponent(credentialId)}`, request.nextUrl.origin).toString(),
       });
-      cid = generated.cid;
     } catch (error) {
       console.error(`Failed to generate certificate PDF for row "${recipientName}":`, error);
       return NextResponse.json(
         { error: `Failed to generate PDF for "${recipientName}"`, created },
         { status: 502 }
+      );
+    }
+
+    // Only knowable after the first upload, so the guard lives in the loop.
+    // Returns what was created so far, matching the partial-failure shape above.
+    if (artifact.mock && process.env.NODE_ENV === "production") {
+      console.error("Refusing to issue certificates with a mock IPFS CID — Pinata is not configured.");
+      return NextResponse.json(
+        { error: "Certificate issuance is unavailable right now.", created },
+        { status: 503 }
       );
     }
 
@@ -120,7 +132,11 @@ export async function POST(request: NextRequest) {
         recipientName,
         recipientEmail: row.recipientEmail || null,
         courseId,
-        cid,
+        cid: artifact.cid,
+        contentHash: artifact.contentHash,
+        computedCid: artifact.computedCid,
+        encKeyEnc: artifact.encKeyEnc,
+        grade,
         walletAddress: row.walletAddress || null,
         issuedAt,
         expiresAt: expiresAtDate,

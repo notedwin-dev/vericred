@@ -71,6 +71,12 @@ export interface IssueCertificateInput {
   courseId: string;
   walletAddress?: string;
   expiresAt?: string;
+  /**
+   * Award classification. Rendered onto the encrypted certificate artifact
+   * only — never returned by the public verify API and never drawn on the
+   * public PNG preview. See docs/encrypted-certificates.md.
+   */
+  grade?: string;
 }
 
 /** One row of a CSV batch upload — same shape, one course per batch. */
@@ -78,6 +84,7 @@ export interface BatchIssueCertificateRow {
   recipientName: string;
   recipientEmail?: string;
   walletAddress?: string;
+  grade?: string;
 }
 
 export interface ConfirmAnchorInput {

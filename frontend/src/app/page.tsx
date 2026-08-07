@@ -1,6 +1,5 @@
-import Link from "next/link";
 import { ShieldCheck, FileCheck2, Link2, Search, ArrowRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { LinkButton } from "@/components/ui/link-button";
 import { PublicAuthAction } from "@/components/layout/public-auth-action";
 
 export default function Home() {
@@ -30,24 +29,18 @@ export default function Home() {
             contacting the issuer.
           </p>
           <div className="mt-2 flex flex-col gap-3 sm:flex-row">
-            <Button
-              render={<Link href="/verify" />}
-              nativeButton={false}
-              size="lg"
-              className="h-11 gap-2 px-6 text-base"
-            >
+            <LinkButton href="/verify" size="lg" className="h-11 gap-2 px-6 text-base">
               <Search className="size-4" />
               Verify a Credential
-            </Button>
-            <Button
-              render={<Link href="/login" />}
-              nativeButton={false}
+            </LinkButton>
+            <LinkButton
+              href="/login"
               size="lg"
               variant="outline"
               className="h-11 gap-2 px-6 text-base"
             >
               Get Started <ArrowRight className="size-4" />
-            </Button>
+            </LinkButton>
           </div>
         </section>
 

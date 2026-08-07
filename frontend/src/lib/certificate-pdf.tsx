@@ -15,6 +15,12 @@ export interface CertificatePdfProps {
   credentialId: string;
   issuedAt: Date;
   qrDataUrl: string;
+  /**
+   * Award classification. Present only on the encrypted artifact — the public
+   * PNG preview (lib/certificate-image.tsx) never receives it, and the public
+   * verify API never returns it. See docs/encrypted-certificates.md.
+   */
+  grade?: string;
 }
 
 const styles = StyleSheet.create({
@@ -67,6 +73,12 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 8,
   },
+  grade: {
+    fontSize: 13,
+    textAlign: "center",
+    marginTop: 6,
+    color: "#333333",
+  },
   footer: {
     display: "flex",
     flexDirection: "row",
@@ -92,6 +104,7 @@ export function CertificatePdf({
   credentialId,
   issuedAt,
   qrDataUrl,
+  grade,
 }: CertificatePdfProps) {
   const accentColor = layout.accentColor || "#4f46e5";
 
@@ -110,6 +123,7 @@ export function CertificatePdf({
             <Text style={styles.recipientName}>{recipientName}</Text>
             {layout.body && <Text style={styles.body}>{layout.body}</Text>}
             <Text style={styles.courseName}>{courseName}</Text>
+            {grade && <Text style={styles.grade}>Grade: {grade}</Text>}
           </View>
 
           <View style={styles.footer}>

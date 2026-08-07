@@ -1,10 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Plus, LayoutTemplate } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { LinkButton } from "@/components/ui/link-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { IssuerNav } from "@/components/issuer/issuer-nav";
@@ -46,10 +45,10 @@ export default function TemplatesPage() {
             Certificate layouts used when issuing credentials.
           </p>
         </div>
-        <Button render={<Link href="/issuer/templates/new" />} nativeButton={false} className="gap-1.5">
+        <LinkButton href="/issuer/templates/new" className="gap-1.5">
           <Plus className="size-4" />
           New Template
-        </Button>
+        </LinkButton>
       </div>
 
       <IssuerNav />
@@ -80,10 +79,10 @@ export default function TemplatesPage() {
               Create a template before setting up a course.
             </p>
           </div>
-          <Button render={<Link href="/issuer/templates/new" />} nativeButton={false} size="sm" className="mt-1 gap-1.5">
+          <LinkButton href="/issuer/templates/new" size="sm" className="mt-1 gap-1.5">
             <Plus className="size-4" />
             New Template
-          </Button>
+          </LinkButton>
         </div>
       )}
 
