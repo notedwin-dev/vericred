@@ -135,19 +135,20 @@ This is a genuine and deliberate limitation, and it is worth being exact about w
 
 The following are places where the design assumes behaviour the implementation does not currently provide. They are stated here rather than in a footnote because an undeclared limitation is worse than a declared one.
 
-### 7.1 On-chain revocation is not invoked by the application
+### 7.1 On-chain revocation depends on an available signer
 
-`VeriCred.sol` implements `revokeCredential(id, reason)`, and the contract test suite covers it. **No application code calls it.** The only revocation control is `handleRevoke` in `app/(authenticated)/issuer/courses/[id]/page.tsx`, which issues `PATCH /api/certificates/[id]` with `{ reason }`; the handler writes `status: "REVOKED"`, `revokedAt` and `revocationReason` to PostgreSQL and stops. The doc comment on that handler claiming the transaction "is signed client-side" describes an intention, not the code.
+*(Resolved. This section previously recorded that revocation was never anchored at all.)*
 
-**Consequences, stated precisely:**
+`PATCH /api/certificates/[id]` now calls `revokeCertificateOnChain` (`lib/revoke.ts`), which appends the revocation to the ledger via `revokeCredential`. The residual assumption is narrower but real: **a permitted signer must be available.**
 
-- A revoked credential's on-chain `isValid()` still returns `true`.
-- The "Revoked" verdict a verifier sees comes entirely from the off-chain cross-check `combinedValid = valid && certificate?.status !== "REVOKED"`.
-- Revocation is therefore **not currently tamper-proof** — it lives only in the mutable index, which is exactly the property the ledger exists to provide.
-- A verifier who bypasses VeriCred's API and calls the contract directly (the escape hatch in T1) would be told a revoked credential is valid.
-- The admin panel has no revocation control at all, despite the administrator holding override authority on the contract.
+`VeriCred.sol` accepts a revocation only from the credential's on-chain `issuer` or from the admin, and the issuer is whichever wallet actually anchored it. So the signer is chosen by reading the anchored issuer back from the chain:
 
-This is the single largest gap between the design and the delivered system, and closing it is the first item of future work.
+- anchored by the institution's **operator wallet** (the deferred path) — that wallet signs, and the revocation is attributed to the institution;
+- anchored **interactively** from the institution's own browser wallet — the platform does not hold that key, so it falls back to the **admin signer**, exercising the override authority the contract grants admin.
+
+Where neither is available — `ADMIN_PRIVATE_KEY` unset and no matching operator wallet — the revocation is recorded off-chain only and the result is reported to the issuer as such, rather than presented as an unqualified success. The off-chain write always happens: a revocation that cannot be anchored must still take effect.
+
+Two properties are deliberate. The operation is **idempotent** — a credential already revoked on-chain reports a skip rather than reverting with `CredentialAlreadyRevoked`. And a certificate that was never anchored skips without touching the chain at all, which is the ordinary case for `PENDING` and `CLAIMED` rows.
 
 ### 7.2 The `EXPIRED` status is never written
 
@@ -209,7 +210,7 @@ If a reader takes away only five things:
 2. **Personal data must never reach the ledger**, which is what makes the whole hybrid-storage design necessary rather than merely clever.
 3. **`ENCRYPTION_KEY` is backup-critical** — losing it permanently destroys access to every certificate artifact.
 4. **Integrity checking needs no key**, because hashing ciphertext is as conclusive as hashing plaintext.
-5. **On-chain revocation is not yet wired up** (§7.1). Revocation currently lives only in the mutable index, and this is the most significant gap between the design and the delivered system.
+5. **On-chain revocation now anchors, but only when a permitted signer exists** (§7.1) — the operator wallet where it anchored the credential, otherwise the admin key. Without either, the revocation is recorded off-chain and reported as such.
 
 ---
 

@@ -24,6 +24,19 @@ export interface VerifyApiResult {
   issuer?: string;
   issuedAt?: number;
   txHash?: string;
+  /**
+   * The chain's own revocation state, read via `getCredential`.
+   *
+   * `verifyCredential` collapses revoked and expired into a single `valid:
+   * false`, so without these a chain-anchored credential with no off-chain row
+   * could not be told apart from an expired one and was displayed as
+   * "Expired" — losing precisely the distinction VeriCred.sol keeps `exists`
+   * and `valid` separate to preserve.
+   */
+  chainRevoked?: boolean;
+  chainRevokedAt?: number;
+  chainRevocationReason?: string;
+  chainExpiresAt?: number;
   certificate: {
     recipientName: string;
     status: CertificateStatus;

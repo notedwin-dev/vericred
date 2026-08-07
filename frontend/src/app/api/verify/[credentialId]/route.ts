@@ -28,6 +28,10 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
   let chainCid: string | undefined;
   let issuer: string | undefined;
   let issuedAt: number | undefined;
+  let chainRevoked: boolean | undefined;
+  let chainRevokedAt: number | undefined;
+  let chainRevocationReason: string | undefined;
+  let chainExpiresAt: number | undefined;
 
   try {
     const contract = getReadOnlyContract();
@@ -41,6 +45,25 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       cid = chainCid;
       issuer = chainIssuer;
       issuedAt = Number(chainIssuedAt);
+
+      // `verifyCredential` reports only a combined `valid`, which cannot
+      // distinguish a revoked credential from an expired one. For a credential
+      // with no off-chain row that ambiguity previously surfaced as "Expired"
+      // for a revoked award. `getCredential` returns the full struct, so read
+      // the revocation state from the chain rather than inferring it.
+      if (!chainValid) {
+        try {
+          const record = await contract.getCredential(credentialId);
+          chainRevoked = Boolean(record.revoked);
+          chainRevokedAt = Number(record.revokedAt) || undefined;
+          chainRevocationReason = record.revocationReason || undefined;
+          chainExpiresAt = Number(record.expiresAt) || undefined;
+        } catch (error) {
+          // Non-fatal: the credential still verifies, the UI just falls back
+          // to its off-chain reasoning about why it is not valid.
+          console.warn("[verify] could not read full on-chain record for %s:", credentialId, error);
+        }
+      }
     }
   } catch (error) {
     console.error("Failed to read on-chain verification:", error);
@@ -110,6 +133,10 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     cidAgreement,
     issuer,
     issuedAt,
+    chainRevoked,
+    chainRevokedAt,
+    chainRevocationReason,
+    chainExpiresAt,
     txHash: certificate?.txHash ?? undefined,
     certificate: certificate
       ? {

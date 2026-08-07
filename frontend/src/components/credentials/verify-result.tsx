@@ -23,6 +23,12 @@ function resolveStatus(result: VerifyApiResult): DisplayStatus {
   if (result.valid) return "VALID";
 
   const cert = result.certificate;
+
+  // The chain is authoritative on why a credential is invalid, and is the only
+  // source at all when there is no off-chain row. Consulted before the
+  // off-chain fields so a revoked credential is never reported as expired.
+  if (result.chainRevoked) return "REVOKED";
+
   if (cert?.status === "EXPIRED") return "EXPIRED";
   if (cert?.expiresAt && new Date(cert.expiresAt).getTime() < Date.now()) {
     return "EXPIRED";
@@ -30,6 +36,9 @@ function resolveStatus(result: VerifyApiResult): DisplayStatus {
   if (cert?.status === "REVOKED" || cert?.revokedAt) return "REVOKED";
   if (cert?.status === "CLAIMED") return "CLAIMED";
   if (!result.onChain) return "PENDING";
+
+  // Chain-anchored and invalid, but not revoked: an elapsed expiry is the only
+  // remaining cause the contract admits.
   return "EXPIRED";
 }
 
@@ -182,16 +191,24 @@ export function VerifyResult({ result }: { result: VerifyApiResult }) {
                 <dd className="text-sm">{formatTimestamp(cert.expiresAt)}</dd>
               </div>
             )}
-            {cert?.revokedAt && (
+            {/* Prefer the off-chain timestamp when present, but fall back to the
+                chain's so a credential with no local row still shows when and
+                why it was withdrawn — that detail is published to the ledger
+                precisely so a verifier can read it. */}
+            {(cert?.revokedAt || result.chainRevokedAt) && (
               <div>
                 <dt className="text-xs font-medium text-muted-foreground">Revoked</dt>
-                <dd className="text-sm">{formatTimestamp(cert.revokedAt)}</dd>
+                <dd className="text-sm">
+                  {cert?.revokedAt
+                    ? formatTimestamp(cert.revokedAt)
+                    : formatTimestamp(result.chainRevokedAt!)}
+                </dd>
               </div>
             )}
-            {cert?.revocationReason && (
+            {(cert?.revocationReason || result.chainRevocationReason) && (
               <div className="sm:col-span-2">
                 <dt className="text-xs font-medium text-muted-foreground">Revocation Reason</dt>
-                <dd className="text-sm">{cert.revocationReason}</dd>
+                <dd className="text-sm">{cert?.revocationReason ?? result.chainRevocationReason}</dd>
               </div>
             )}
           </dl>

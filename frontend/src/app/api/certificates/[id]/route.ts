@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isAddress, ZeroAddress } from "ethers";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { revokeCertificateOnChain } from "@/lib/revoke";
 import type { RevokeCertificateInput, ConfirmAnchorInput } from "@/types";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -53,8 +54,11 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
  * Two actions, distinguished by body shape — both require the calling user
  * to be the issuer that owns the certificate's course, or an admin:
  *
- *  - `{ reason }`  — revoke. The on-chain `revokeCredential` transaction is
- *    signed client-side; this records the revocation in the off-chain index.
+ *  - `{ reason }`  — revoke. Anchors the revocation on-chain via
+ *    lib/revoke.ts (operator wallet where it anchored the credential, else the
+ *    admin signer) and records it in the off-chain index. The off-chain write
+ *    happens whether or not the on-chain call succeeds, so the outcome is
+ *    reported back in `onChain` rather than failing the request.
  *  - `{ txHash }`  — confirm anchor. Called after a client-side (or
  *    server-side, see lib/anchor.ts) `issueCredential`/`issueCredentialBatch`
  *    transaction confirms, moving the certificate from PENDING to ACTIVE.
@@ -126,14 +130,21 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: "Certificate is already revoked" }, { status: 409 });
   }
 
+  // Anchor first, then record. Either ordering is safe for a verifier — the
+  // endpoint reports a credential as invalid when *either* source says
+  // revoked — but attempting the chain first means a success is never lost to
+  // a subsequent database failure.
+  const onChain = await revokeCertificateOnChain(certificate, reason);
+
   const updated = await prisma.certificate.update({
     where: { id },
     data: {
       status: "REVOKED",
       revokedAt: new Date(),
       revocationReason: reason,
+      revokeTxHash: onChain.status === "revoked" ? onChain.txHash : null,
     },
   });
 
-  return NextResponse.json({ certificate: updated });
+  return NextResponse.json({ certificate: updated, onChain });
 }

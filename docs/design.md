@@ -453,7 +453,21 @@ The two phases are separated deliberately. Phase 1 is authoritative — if it fa
 
 Deferred batch anchoring groups certificates **by owning institution** before transacting, because one transaction has exactly one `msg.sender` and certificates from different issuers can never share it.
 
-### 8.3 Verification
+### 8.3 Revocation
+
+Revocation must be anchored, not merely indexed — a withdrawal recorded only in a mutable database is exactly the failure mode the ledger exists to prevent. `PATCH /api/certificates/[id]` therefore calls `revokeCertificateOnChain` before writing the off-chain record.
+
+Choosing the signer is the whole difficulty, because `VeriCred.sol` accepts a revocation only from the credential's on-chain `issuer` or from the admin, and the issuer is whichever wallet anchored it:
+
+| Credential anchored by | Signer used | Attribution |
+|---|---|---|
+| Operator wallet (deferred path) | That operator wallet | The institution |
+| Institution's own browser wallet | Admin signer — the platform holds no institutional key | Platform admin, exercising override authority |
+| Nothing (`PENDING` / `CLAIMED`) | None; chain not touched | — |
+
+The anchored issuer is read back from the chain rather than assumed, since the database does not record which wallet signed. Where no permitted signer exists, the revocation is still recorded off-chain and the outcome is returned to the caller, which the issuer panel surfaces as a warning rather than an unqualified success. The operation is idempotent: a credential already revoked on-chain reports a skip instead of reverting.
+
+### 8.4 Verification
 
 `/api/verify/[credentialId]` composes two sources: the chain (authoritative for existence and validity) and the index (descriptive detail). `exists` is true when *either* has a record — a certificate pinned and indexed but not yet anchored is real, and reporting it as "not found" would be inaccurate. `onChain` distinguishes the two.
 
@@ -462,7 +476,7 @@ Integrity checking (`lib/integrity.ts`) retrieves by the chain's CID and re-hash
 - **`cid`** — the bytes re-derive the anchored value; closes even the dishonest-gateway case.
 - **`content-hash`** — the bytes match the sha256 recorded at issuance; still a genuine re-hash, sound because the *retrieval key* came from the chain.
 
-### 8.4 Lifecycle
+### 8.5 Lifecycle
 
 ```mermaid
 stateDiagram-v2
@@ -470,14 +484,16 @@ stateDiagram-v2
     PENDING --> ACTIVE: anchored
     PENDING --> CLAIMED: claimed, no wallet yet
     CLAIMED --> ACTIVE: wallet linked → auto-anchor
-    PENDING --> REVOKED: revoked
-    CLAIMED --> REVOKED: revoked
-    ACTIVE --> REVOKED: revoked
+    PENDING --> REVOKED: revoked (off-chain; nothing anchored)
+    CLAIMED --> REVOKED: revoked (off-chain; nothing anchored)
+    ACTIVE --> REVOKED: revokeCredential + off-chain record
 ```
+
+Only the transition out of `ACTIVE` has anything to anchor — a `PENDING` or `CLAIMED` certificate has no on-chain record to append a revocation to, so `lib/revoke.ts` skips the chain entirely for those.
 
 `EXPIRED` is defined in the enum but **never written** — expiry is evaluated on-chain by `verifyCredential` and derived at render time. See §10.
 
-### 8.5 Sharing
+### 8.6 Sharing
 
 A holder may need to show a certificate, grade included, to one third party. The naïve design hands over the key, typically in a URL fragment — which cannot be revoked and leaks into browser history and forwarded links.
 
@@ -508,7 +524,7 @@ Stated here rather than left for a reader to discover. The full treatment is in 
 
 | # | Design intent | Actual behaviour |
 |---|---|---|
-| 1 | Revocation is anchored on-chain via `revokeCredential` | **Not invoked by any application code.** The only control PATCHes `{ reason }`, which writes `status: "REVOKED"` to PostgreSQL and stops. On-chain `isValid()` still returns `true`; the "Revoked" verdict comes entirely from the off-chain cross-check. The contract function is implemented and tested; nothing calls it. |
+| 1 | Revocation is anchored on-chain via `revokeCredential` | **Now implemented** (`lib/revoke.ts`). The residual limit is that a permitted signer must exist: the operator wallet where it anchored the credential, otherwise the admin key. Without either, the revocation is recorded off-chain and reported as such rather than silently. |
 | 2 | `EXPIRED` is a status a certificate reaches | Never written by any code path. Expiry is evaluated on-chain and derived at render time. |
 | 3 | `computedCid` is a stored reference for verification | Stored, but `checkArtifactIntegrity` recomputes from fetched bytes and compares to `cid` — the stored value is only a truthiness gate. The `method: "cid"` path is also unexercised by CI. |
 | 4 | Institution approval is all-or-nothing | The **database** writes are atomic and no role is granted unless both on-chain calls succeeded — but the two `authoriseInstitution` transactions are independent with no compensating rollback, so a partial failure can strand an authorisation that a retry does not clean up. |
@@ -517,7 +533,7 @@ Stated here rather than left for a reader to discover. The full treatment is in 
 | 7 | E-mail signup provisions a custody wallet | `custodyAddress`/`custodyKeyEnc` exist; nothing populates them. |
 | 8 | Contract errors decoded from their selector | Substring matching on the error name in ethers' surfaced message. |
 
-Item 1 is the most significant: revocation currently lives only in the mutable index, which is precisely the property the ledger exists to provide. Closing it is the first item of future work.
+Item 1 was the most significant of these and has since been closed; the rest stand. Items 2 and 5 are the ones now worth attention.
 
 ---
 

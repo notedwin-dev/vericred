@@ -154,6 +154,11 @@ model Certificate {
   status           CertificateStatus @default(PENDING)
   revokedAt        DateTime?
   revocationReason String?
+  /// Transaction hash of the on-chain revokeCredential call. NULL means the
+  /// revocation was recorded off-chain only — either the certificate was never
+  /// anchored, or no signer permitted by the contract was available. See
+  /// lib/revoke.ts.
+  revokeTxHash     String?
   createdAt        DateTime          @default(now())
 
   /// Wrapped per-certificate AES-256-GCM content key: 32 random bytes, hex

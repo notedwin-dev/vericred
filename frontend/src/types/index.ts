@@ -54,6 +54,8 @@ export interface CertificateDTO {
   status: CertificateStatus;
   revokedAt: string | null;
   revocationReason: string | null;
+  /** Set only when the revocation was also anchored on-chain (lib/revoke.ts). */
+  revokeTxHash?: string | null;
   createdAt: string;
   course?: {
     name: string;
