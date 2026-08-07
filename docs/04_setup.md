@@ -36,25 +36,22 @@ The whole procedure, in order, for a reader who wants the commands and will cons
 npm install
 cd frontend && npm install && cd ..
 
-# 2. Create the databases (5.1)
-createdb vericred && createdb vericred_test
-
-# 3. Configure frontend/.env.local  (6.0)
+# 2. Configure frontend/.env.local  (6.0)
 #    DATABASE_URL, NEXTAUTH_SECRET, NEXTAUTH_URL, ENCRYPTION_KEY
 cp frontend/.env.example frontend/.env.local   # then edit it
 
-# 4. Apply the schema (5.3)
+# 3. Create and migrate the database — Prisma creates it if absent (5.1, 5.3)
 cd frontend && npx prisma migrate dev && cd ..
 
-# 5. Start everything: node -> deploy -> chain seed -> application (4.1)
+# 4. Start everything: node -> deploy -> chain seed -> application (4.1)
 npm run dev:fresh
 
-# 6. In a SECOND terminal, once "VeriCred deployed to: 0x…" appears,
+# 5. In a SECOND terminal, once "VeriCred deployed to: 0x…" appears,
 #    seed the demo accounts (5.4). Needs the chain up — see the note in 4.1.
 cd frontend && npx prisma db seed
 ```
 
-Then open **http://localhost:3000**. Steps 3 and 4 must precede step 5, because the application cannot start meaningfully against an unconfigured or unmigrated database.
+Then open **http://localhost:3000**. Steps 2 and 3 must precede step 4, because the application cannot start meaningfully against an unconfigured or unmigrated database.
 
 ---
 
@@ -125,7 +122,7 @@ npm run dev:fresh
 
 Run it from the **repository root**, and leave it running. Use it on a first run and after anything that wipes chain state.
 
-Once the chain is up (you will see `VeriCred deployed to: 0x…`), open a second terminal for the database steps in 5.0. If you have already created the database and applied migrations, the only remaining command is:
+Once the chain is up (you will see `VeriCred deployed to: 0x…`), open a second terminal for the database steps in 5.0. If you have already applied migrations — which is also what creates the database (5.1) — the only remaining command is:
 
 ```bash
 cd frontend && npx prisma db seed
@@ -192,23 +189,20 @@ cd frontend && npm run dev
 
 ## 5.0 Provision the database
 
-### 5.1 Create the database
+### 5.1 The databases create themselves
 
-```bash
-createdb vericred
-```
+There is no manual creation step. Both databases are created for you:
 
-Or from `psql`:
+- **`vericred`** — `npx prisma migrate dev` (5.3) creates it. Prisma tries to connect, and on error `P1003` ("database does not exist") calls `createDatabase` before applying migrations, for PostgreSQL as for every other provider.
+- **`vericred_test`** — `npm run test` creates it. `src/test/global-setup.ts` runs once before any test file, connects to the `postgres` administrative database, issues `CREATE DATABASE`, tolerates `42P04` (already exists), and then applies migrations with `prisma migrate deploy`.
 
-```sql
-CREATE DATABASE vericred;
-```
+All you need is a running PostgreSQL server and a `DATABASE_URL` pointing at it.
 
-For the test suite, also create:
-
-```bash
-createdb vericred_test
-```
+> **The one case where this fails.** Prisma can only create a database if the role in your `DATABASE_URL` holds the `CREATEDB` privilege. The default `postgres` superuser does; a restricted role provisioned by a DBA may not. If `migrate dev` reports that it cannot create the database, either grant the privilege — `ALTER ROLE <your_role> CREATEDB;` — or create it by hand:
+>
+> ```bash
+> createdb vericred          # or, from psql:  CREATE DATABASE vericred;
+> ```
 
 ### 5.2 Configure the connection string
 
@@ -335,7 +329,7 @@ NEXT_PUBLIC_BLOCK_EXPLORER_URL=
 
 ### 6.4 Test environment
 
-`npm run test` in `frontend/` reads `.env.test`, which needs its own database and its own `ENCRYPTION_KEY` — without the latter, every issuance test returns 502.
+`npm run test` in `frontend/` reads `.env.test`, which needs its own `DATABASE_URL` and its own `ENCRYPTION_KEY` — without the latter, every issuance test returns 502. You do not need to create the database yourself; the test global setup creates and migrates it (5.1). It refuses to run against a non-local host, or against a database named `postgres`, so the URL must name a dedicated test database.
 
 ```dotenv
 DATABASE_URL=postgresql://postgres:password@localhost:5432/vericred_test
@@ -440,7 +434,7 @@ The shortest path to seeing the system work end-to-end.
 | Certificate download returns 502 in local development | The mock CID resolves to nothing on any gateway. | Expected without real Pinata credentials. The route fails honestly rather than falling back to a re-render, which would mask genuine retrieval failures. |
 | `P1001: Can't reach database server` | PostgreSQL is not running, or `DATABASE_URL` is wrong. | Start PostgreSQL; check host, port, user, password and database name. |
 | `prisma migrate dev` reports drift | The database was modified outside Prisma. | `npx prisma migrate reset` — **destroys all data** — then re-seed. |
-| Application tests fail on connection | `vericred_test` does not exist or `.env.test` is missing. | `createdb vericred_test` and create `.env.test` per 6.4. |
+| Application tests fail on connection | `.env.test` is missing, or its `DATABASE_URL` role lacks `CREATEDB`. | Create `.env.test` per 6.4. The test database itself is created automatically (5.1); if creation is refused, grant `CREATEDB` to the role. |
 | Signed in, but redirected to `/onboarding` repeatedly | An OAuth account has no username or linked wallet. | Complete the onboarding form. Both are mandatory for `USER` accounts. |
 | Wallet connects, then immediately signs you out | Historically caused by AppKit's `signOutOnAccountChange` defaults. | Already handled — both flags are set to `false`. If it recurs, check `lib/siwe-config.ts` has not been reverted. |
 | Dev server very slow to compile a route | Expected on first compile in development; `<Link>` does not prefetch in dev. | See [`dev-performance.md`](./dev-performance.md). Adding a Windows Defender exclusion for the repository is worth roughly 11%. |
