@@ -27,6 +27,35 @@ They are brought up in that order because each depends on the one before it. The
 
 Total time from clean checkout to running application: roughly **10–15 minutes**, most of which is `npm install`.
 
+### The short version
+
+The whole procedure, in order, for a reader who wants the commands and will consult the sections below only when something needs explaining. `npm run dev:fresh` collapses the entire blockchain side — node, deploy, chain seed, application — into one command.
+
+```bash
+# 1. Install both dependency trees (1.0, 2.0)
+npm install
+cd frontend && npm install && cd ..
+
+# 2. Create the databases (5.1)
+createdb vericred && createdb vericred_test
+
+# 3. Configure frontend/.env.local  (6.0)
+#    DATABASE_URL, NEXTAUTH_SECRET, NEXTAUTH_URL, ENCRYPTION_KEY
+cp frontend/.env.example frontend/.env.local   # then edit it
+
+# 4. Apply the schema (5.3)
+cd frontend && npx prisma migrate dev && cd ..
+
+# 5. Start everything: node -> deploy -> chain seed -> application (4.1)
+npm run dev:fresh
+
+# 6. In a SECOND terminal, once "VeriCred deployed to: 0x…" appears,
+#    seed the demo accounts (5.4). Needs the chain up — see the note in 4.1.
+cd frontend && npx prisma db seed
+```
+
+Then open **http://localhost:3000**. Steps 3 and 4 must precede step 5, because the application cannot start meaningfully against an unconfigured or unmigrated database.
+
 ---
 
 ## 1.0 Prerequisites
@@ -84,27 +113,51 @@ Compilation writes to `artifacts/` and `cache/`, both git-ignored. Successful co
 
 ---
 
-## 4.0 Start the blockchain and deploy
+## 4.0 Start the blockchain and the application
 
-### 4.1 Start the node
+### 4.1 The one-command path
 
-In a terminal you will leave running:
+Everything the chain needs — start the node, wait for it, deploy the contract, seed demonstration credentials, then launch the application — is chained into a single script:
+
+```bash
+npm run dev:fresh
+```
+
+Run it from the **repository root**, and leave it running. Use it on a first run and after anything that wipes chain state.
+
+Once the chain is up (you will see `VeriCred deployed to: 0x…`), open a second terminal for the database steps in 5.0. If you have already created the database and applied migrations, the only remaining command is:
+
+```bash
+cd frontend && npx prisma db seed
+```
+
+> **Order matters here, and quietly.** `prisma db seed` funds and authorises the issuer's operator wallet **on-chain**, and both steps are best-effort: run with no node listening they are skipped with a warning rather than an error. The database still seeds and the demo accounts still work, but the issuer has no usable operator wallet, so deferred anchoring (a collection-link claim, or a wallet linked later) silently does nothing. If you seeded before starting the chain, just re-run `npx prisma db seed` — it is idempotent and will provision the wallet on the second pass.
+
+On later runs, when the contract is already deployed and you only want the node and the application back up:
+
+```bash
+npm run dev
+```
+
+The two differ because `dev:fresh` must be **chained rather than parallel**: the application's `predev` hook copies `frontend-config/`, which only exists once `deploy` has run. `npm run dev` starts the node and the application side by side and assumes that directory is already there.
+
+### 4.2 The same steps, run individually
+
+Useful when a step fails and you want to see which, or when you want to redeploy without restarting the node. Each command is one line of what `dev:fresh` chains.
+
+**Start the node** — in a terminal you will leave running:
 
 ```bash
 npm run node
 ```
 
-This starts a Hardhat node at `http://127.0.0.1:8545` (chain ID `31337`) and prints twenty pre-funded test accounts with their private keys. Leave this terminal open — closing it destroys all chain state.
+A Hardhat node at `http://127.0.0.1:8545` (chain ID `31337`), printing twenty pre-funded test accounts with their private keys. Closing this terminal destroys all chain state.
 
-### 4.2 Deploy the contract
-
-In a **second** terminal:
+**Deploy the contract** — in a second terminal:
 
 ```bash
 npm run deploy      # hardhat run scripts/deploy.js --network localhost
 ```
-
-Expected output:
 
 ```
 Network : localhost (chainId 31337)
@@ -121,15 +174,19 @@ Wrote frontend-config/contract.json and .env.local
 
 The deploy script does four things: deploys the bytecode, authorises Hardhat Account #1 as a second institution so the demonstration has a distinct issuer, writes `frontend-config/contract.json` (address, chain ID, ABI), and writes `frontend-config/.env.local`.
 
-**Record the deployed address.** You will see it again in `frontend/.env.local`.
-
-### 4.3 Seed demonstration credentials (optional)
+**Seed demonstration credentials on-chain** (optional):
 
 ```bash
-npm run seed        # seeds 4 demo credentials on-chain, revokes 1
+npm run seed        # 4 demo credentials, 1 revoked
 ```
 
-This populates the on-chain registry so `/verify` has something to find before you issue anything yourself.
+This populates the on-chain registry so `/verify` has something to find before you issue anything yourself. Note this is the *chain* seed; the *database* seed is a separate command in 5.4.
+
+**Start the application:**
+
+```bash
+cd frontend && npm run dev
+```
 
 ---
 
@@ -291,6 +348,8 @@ NEXTAUTH_URL=http://localhost:3000
 
 ## 7.0 Run the application
 
+If you used `npm run dev:fresh` (4.1) the application is already running. To start it on its own — the node and contract already being in place:
+
 ```bash
 cd frontend
 npm run dev
@@ -299,17 +358,6 @@ npm run dev
 The `predev` hook runs `scripts/copy-config.js` first, copying the ABI to `src/lib/abi.json` and merging the `NEXT_PUBLIC_*` values into `.env.local`. Then Next.js starts with Turbopack.
 
 Open **http://localhost:3000**.
-
-### 7.1 Running everything from one terminal
-
-Two orchestrated scripts exist at the repository root, using `concurrently`:
-
-```bash
-npm run dev          # Hardhat node + application in parallel
-npm run dev:fresh    # Cold start: node → wait-for-node → deploy → seed → application
-```
-
-Use `dev:fresh` on a first run or after wiping chain state. The two differ because `dev:fresh` must be **chained rather than parallel**: the application's `predev` hook copies `frontend-config/`, which only exists after `deploy` has run.
 
 ---
 
