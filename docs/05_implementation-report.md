@@ -2281,3 +2281,18 @@ The following records in `docs/` provide fuller treatment of requirements and de
 | `docs/prds/encrypted-certificates.md` | Encrypted-artefact design: key custody, the privacy split, integrity methods, legacy rows |
 | `docs/prds/institution-registration-prd.md` | Institution registration, wallet architecture, and the administrator approval flow |
 | `docs/prds/dev-performance.md` | Provider-scoping analysis, benchmark harness, and before/after compilation measurements |
+
+---
+
+### Appendix F — Contribution Matrix
+
+The group agreed an **equal division of credit, 25% per member**. The assignment brief specifies a group deliverable and defines no per-member weighting or individual mark, so an equal share is the group's declared position on how the work should be credited.
+
+The responsibilities below indicate where each member's effort was concentrated. They are not exclusive. The smart contract was revised repeatedly as front-end requirements emerged, design decisions were taken jointly, and the documentation set was reviewed by the whole group before submission.
+
+| Member | TP Number | Principal responsibilities | Share |
+|---|---|---|---|
+| Ng Jian Hwa | TP070698 | Front-end implementation — the Next.js application, React components, routing, authentication and wallet integration. Subsequent system design: the encrypted-artefact model, institution registration and approval, deferred anchoring via per-issuer operator wallets, and integrity checking. Contract revisions arising from front-end requirements. | 25% |
+| Leanard Tang YiShiun | TP070029 | Initial `VeriCred.sol` implementation — the credential registry, access-control model, issuance and revocation semantics — which the group then revised iteratively during the front-end build. Hardhat contract test suite. | 25% |
+| Low Teck Chi | TP064234 | Documentation: the setup guide (`04_setup.md`), including the environment reference and troubleshooting, and the assumptions document (`02_assumptions.md`). Part 1 proposal research and write-up. | 25% |
+| Tan Jun Hong | TP071266 | Documentation: the system design document (`03_design.md`), and compilation and review of this implementation report. Demonstration preparation. | 25% |
