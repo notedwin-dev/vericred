@@ -12,7 +12,7 @@ them apart matters, because fixing one does nothing for the other:
 
 ---
 
-## 1. Navigation felt unresponsive — no `loading.tsx` anywhere
+## 1.0 Navigation felt unresponsive — no `loading.tsx` anywhere
 
 ### Cause
 
@@ -136,7 +136,7 @@ itself; that is why the indicator is a child component.
 
 ---
 
-## 2. Compiles were slow — two causes
+## 2.0 Compiles were slow — two causes
 
 ### Cause A: dev ran on webpack, not Turbopack
 

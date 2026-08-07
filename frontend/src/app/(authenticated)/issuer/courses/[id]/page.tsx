@@ -95,7 +95,32 @@ export default function CourseDetailPage({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to revoke certificate");
-      toast.success("Certificate revoked.");
+
+      // The revocation is always recorded off-chain; whether it also reached
+      // the chain depends on the certificate having been anchored and a
+      // permitted signer being available (see lib/revoke.ts). Say which
+      // happened rather than reporting an unqualified success — an issuer who
+      // believes a revocation is on-chain when it is not has been misled about
+      // the one property the ledger exists to provide.
+      const onChain = data.onChain as
+        | { status: "revoked"; txHash: string }
+        | { status: "skipped"; reason: string }
+        | { status: "failed"; message: string }
+        | undefined;
+
+      if (onChain?.status === "revoked") {
+        toast.success("Certificate revoked and anchored on-chain.");
+      } else if (onChain?.status === "skipped" && onChain.reason === "not-anchored") {
+        toast.success("Certificate revoked. It was never anchored, so there is nothing on-chain to revoke.");
+      } else if (onChain?.status === "skipped" && onChain.reason === "already-revoked") {
+        toast.success("Certificate revoked. It was already revoked on-chain.");
+      } else if (onChain?.status === "skipped") {
+        toast.warning("Certificate revoked off-chain only — no wallet authorised to revoke it was available.");
+      } else if (onChain?.status === "failed") {
+        toast.warning("Certificate revoked off-chain, but the on-chain transaction failed.");
+      } else {
+        toast.success("Certificate revoked.");
+      }
       setCertificates((prev) => prev.map((c) => (c.id === certId ? data.certificate : c)));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to revoke certificate");

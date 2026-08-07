@@ -35,12 +35,12 @@ being pinned to IPFS:
 
 | Where | Claim |
 |---|---|
-| §4.3 | personal data must not be published "in a permanent, public, and irreversible way" |
-| §5.2 | "The certificate file is encrypted and stored on IPFS… only authorized key-holders can read the file" |
-| §5.4 | "encrypts the certificate and uploads it to IPFS… The graduate is issued… the key to unwrap the certificate" |
-| §5.4 | "after it is decrypted with the key of the file's owner" |
-| §6.2 | the hybrid-storage privacy argument |
-| §7 | "storing encrypted certificates on IPFS" |
+| 4.3 | personal data must not be published "in a permanent, public, and irreversible way" |
+| 5.2 | "The certificate file is encrypted and stored on IPFS… only authorized key-holders can read the file" |
+| 5.4 | "encrypts the certificate and uploads it to IPFS… The graduate is issued… the key to unwrap the certificate" |
+| 5.4 | "after it is decrypted with the key of the file's owner" |
+| 6.2 | the hybrid-storage privacy argument |
+| 7.0 | "storing encrypted certificates on IPFS" |
 
 None of it was implemented. `lib/generate-certificate.tsx` rendered the PDF and handed
 the raw buffer to Pinata; `lib/crypto.ts` existed but was imported only by
@@ -59,12 +59,12 @@ public**.
 
 So encryption on its own would have closed exactly one vector — "anyone who ever sees
 the CID can pull the file from a public gateway forever, including for revoked
-credentials" — while leaving §6.2's privacy claim as false as before. That vector is
-real and is precisely what §4.3 describes, but it is narrower than what was promised.
+credentials" — while leaving 6.2's privacy claim as false as before. That vector is
+real and is precisely what 4.3 describes, but it is narrower than what was promised.
 
 The fix is therefore *two* changes, not one: encrypt the artifact **and** give it
 content the public API does not return. `grade` (classification) is that content, named
-in the proposal's own §4.1 as award data.
+in the proposal's own 4.1 as award data.
 
 **2. Nothing ever verified a CID.**
 
@@ -161,7 +161,7 @@ Pinata pin.
 and stored on the row — the same at-rest pattern as `Issuer.operatorKeyEnc` in
 `lib/operator-wallet.ts`. The holder downloads while signed in; the server decrypts.
 
-The proposal (§5.4) says "the graduate is issued… the key to unwrap the certificate",
+The proposal (5.4) says "the graduate is issued… the key to unwrap the certificate",
 i.e. the holder holds the key. **That is not what is being built, and the report must say
 so.** The literal design — the raw key in a URL fragment, decrypted in the browser —
 makes revocation impossible and leaks the key into browser history and any forwarded
@@ -201,7 +201,7 @@ anchor for what was actually issued.
 
 ## Not doing
 
-- **Encrypting the metadata in Postgres.** Out of scope, and §6.2 explicitly places
+- **Encrypting the metadata in Postgres.** Out of scope, and 6.2 explicitly places
   readable metadata in the institution's own database by design.
 - **Client-side decryption.** See D3.
 - **Backfilling existing certificates.** See D4.

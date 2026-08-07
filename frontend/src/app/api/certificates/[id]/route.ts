@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isAddress, ZeroAddress } from "ethers";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { revokeCertificateOnChain } from "@/lib/revoke";
 import type { RevokeCertificateInput, ConfirmAnchorInput } from "@/types";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -53,8 +54,11 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
  * Two actions, distinguished by body shape — both require the calling user
  * to be the issuer that owns the certificate's course, or an admin:
  *
- *  - `{ reason }`  — revoke. The on-chain `revokeCredential` transaction is
- *    signed client-side; this records the revocation in the off-chain index.
+ *  - `{ reason }`  — revoke. Anchors the revocation on-chain via
+ *    lib/revoke.ts (operator wallet where it anchored the credential, else the
+ *    admin signer) and records it in the off-chain index. The off-chain write
+ *    happens whether or not the on-chain call succeeds, so the outcome is
+ *    reported back in `onChain` rather than failing the request.
  *  - `{ txHash }`  — confirm anchor. Called after a client-side (or
  *    server-side, see lib/anchor.ts) `issueCredential`/`issueCredentialBatch`
  *    transaction confirms, moving the certificate from PENDING to ACTIVE.
@@ -126,14 +130,60 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: "Certificate is already revoked" }, { status: 409 });
   }
 
-  const updated = await prisma.certificate.update({
-    where: { id },
-    data: {
-      status: "REVOKED",
-      revokedAt: new Date(),
-      revocationReason: reason,
-    },
-  });
+  // Anchor first, then record. Either ordering is safe for a verifier, since
+  // the verify endpoint reports a credential as invalid when *either* source
+  // says revoked. The window that remains is a successful on-chain revocation
+  // whose database write then fails: the chain is correct but our index still
+  // says ACTIVE. That is handled below rather than eliminated — closing it
+  // properly needs a durable record of the intent written before the
+  // transaction is submitted, which is a larger change than this route.
+  const onChain = await revokeCertificateOnChain(certificate, reason);
 
-  return NextResponse.json({ certificate: updated });
+  const data = {
+    status: "REVOKED" as const,
+    revokedAt: new Date(),
+    revocationReason: reason,
+    // Only write a hash when this attempt produced one. Leaving the column
+    // untouched otherwise means a retry that finds the credential already
+    // revoked on-chain cannot erase the hash an earlier attempt recorded.
+    ...(onChain.status === "revoked" ? { revokeTxHash: onChain.txHash } : {}),
+  };
+
+  let updated;
+  try {
+    updated = await prisma.certificate.update({ where: { id }, data });
+  } catch (dbError) {
+    console.error(
+      `[revoke] Database update failed for ${certificate.credentialId}` +
+        (onChain.status === "revoked" ? ` after a successful on-chain revocation (${onChain.txHash})` : "") +
+        ". Retrying once...",
+      dbError
+    );
+    try {
+      updated = await prisma.certificate.update({ where: { id }, data });
+    } catch (retryError) {
+      // Surface the transaction hash rather than losing it to a 500 — it is
+      // the only handle on an on-chain revocation the index does not reflect,
+      // and a retry of this request would report `already-revoked` and never
+      // learn it. A re-run still converges the status; only the hash is lost.
+      console.error(
+        `[revoke] Database update retry also failed for ${certificate.credentialId}` +
+          (onChain.status === "revoked" ? ` (txHash ${onChain.txHash})` : "") +
+          ". Manual reconciliation needed.",
+        retryError
+      );
+      return NextResponse.json(
+        {
+          error:
+            onChain.status === "revoked"
+              ? "The revocation was recorded on-chain but could not be saved. It will show as revoked to verifiers; please retry to update the record."
+              : "Failed to record the revocation.",
+          onChain,
+        },
+        { status: 500 }
+      );
+    }
+  }
+
+  return NextResponse.json({ certificate: updated, onChain });
 }

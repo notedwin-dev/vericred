@@ -6,7 +6,7 @@ Blockchain-anchored academic credential verification — issue, verify, and revo
 
 VeriCred is a blockchain-based Academic Credential Verification System, similar to Accredible or Credly. Universities and organizations issue certificates as encrypted PDFs stored on IPFS; only the file's content fingerprint (IPFS CID) is anchored on-chain. Anyone — an employer, a recruiter, another institution — can verify a credential in seconds without contacting the issuer, while the underlying personal data never touches the public ledger.
 
-Built for module **CT124-3-3-BCD (Blockchain Design and Development)**, Group 14, APU.
+Built for module **CT124-3-3-BCD (Blockchain Development)**, Group 14, APU.
 
 ## Key Features
 

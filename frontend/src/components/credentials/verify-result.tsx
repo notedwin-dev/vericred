@@ -23,6 +23,12 @@ function resolveStatus(result: VerifyApiResult): DisplayStatus {
   if (result.valid) return "VALID";
 
   const cert = result.certificate;
+
+  // The chain is authoritative on why a credential is invalid, and is the only
+  // source at all when there is no off-chain row. Consulted before the
+  // off-chain fields so a revoked credential is never reported as expired.
+  if (result.chainRevoked) return "REVOKED";
+
   if (cert?.status === "EXPIRED") return "EXPIRED";
   if (cert?.expiresAt && new Date(cert.expiresAt).getTime() < Date.now()) {
     return "EXPIRED";
@@ -30,6 +36,9 @@ function resolveStatus(result: VerifyApiResult): DisplayStatus {
   if (cert?.status === "REVOKED" || cert?.revokedAt) return "REVOKED";
   if (cert?.status === "CLAIMED") return "CLAIMED";
   if (!result.onChain) return "PENDING";
+
+  // Chain-anchored and invalid, but not revoked: an elapsed expiry is the only
+  // remaining cause the contract admits.
   return "EXPIRED";
 }
 
@@ -97,6 +106,12 @@ export function VerifyResult({ result }: { result: VerifyApiResult }) {
   const Icon = config.icon;
   const cert = result.certificate;
   const explorerUrl = result.txHash ? getExplorerTxUrl(result.txHash) : null;
+
+  // When the ledger records the revocation, its values are the published ones
+  // and take precedence over the mutable index; otherwise there is nothing on
+  // the chain to prefer. See the revocation detail block below.
+  const revokedAt = result.chainRevoked ? result.chainRevokedAt : undefined;
+  const revocationReason = result.chainRevoked ? result.chainRevocationReason : undefined;
 
   return (
     <Card className={`${config.cardClass} border-2`}>
@@ -182,16 +197,22 @@ export function VerifyResult({ result }: { result: VerifyApiResult }) {
                 <dd className="text-sm">{formatTimestamp(cert.expiresAt)}</dd>
               </div>
             )}
-            {cert?.revokedAt && (
+            {/* Where the chain says revoked, the chain's timestamp and reason
+                are what was published to the permanent audit trail, so they win
+                over the mutable index — showing a locally-edited reason beside
+                a ledger-backed revocation would misrepresent the record. Only
+                when the revocation exists off-chain alone do the local values
+                lead, with the chain's as a fallback either way. */}
+            {(revokedAt || cert?.revokedAt) && (
               <div>
                 <dt className="text-xs font-medium text-muted-foreground">Revoked</dt>
-                <dd className="text-sm">{formatTimestamp(cert.revokedAt)}</dd>
+                <dd className="text-sm">{formatTimestamp(revokedAt ?? cert?.revokedAt)}</dd>
               </div>
             )}
-            {cert?.revocationReason && (
+            {(revocationReason || cert?.revocationReason) && (
               <div className="sm:col-span-2">
                 <dt className="text-xs font-medium text-muted-foreground">Revocation Reason</dt>
-                <dd className="text-sm">{cert.revocationReason}</dd>
+                <dd className="text-sm">{revocationReason ?? cert?.revocationReason}</dd>
               </div>
             )}
           </dl>

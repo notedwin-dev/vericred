@@ -36,10 +36,20 @@ export async function autoAnchorCertificate(certificate: AnchorableCertificate):
   const issuer = await resolveIssuer(certificate.courseId);
   if (!issuer) return null;
 
-  const signer = getOperatorSigner(issuer);
+  // Wrapped: getOperatorSigner returns null for a missing or mismatched
+  // wallet, but decrypt() *throws* on a corrupt operatorKeyEnc. Called outside
+  // a try, that propagated out of the collect route as a 500 — after the
+  // certificate row and the incremented link counter had already committed.
+  let signer;
+  try {
+    signer = getOperatorSigner(issuer);
+  } catch (error) {
+    console.error(`[anchor] Could not load the operator wallet for ${issuer.organizationName}:`, error);
+    signer = null;
+  }
   if (!signer) {
     console.warn(
-      `[anchor] ${issuer.organizationName} has no operator wallet provisioned — leaving ${certificate.credentialId} PENDING.`
+      `[anchor] ${issuer.organizationName} has no usable operator wallet — leaving ${certificate.credentialId} PENDING.`
     );
     return null;
   }
@@ -109,10 +119,16 @@ export async function autoAnchorCertificates(certificates: AnchorableCertificate
 
   let anyAnchored = false;
   for (const { issuer, certs } of groups.values()) {
-    const signer = getOperatorSigner(issuer);
+    let signer;
+    try {
+      signer = getOperatorSigner(issuer);
+    } catch (error) {
+      console.error(`[anchor] Could not load the operator wallet for ${issuer.organizationName}:`, error);
+      signer = null;
+    }
     if (!signer) {
       console.warn(
-        `[anchor] ${issuer.organizationName} has no operator wallet provisioned — leaving ${certs.length} certificate(s) PENDING.`
+        `[anchor] ${issuer.organizationName} has no usable operator wallet — leaving ${certs.length} certificate(s) PENDING.`
       );
       continue;
     }
