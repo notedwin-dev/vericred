@@ -12,7 +12,15 @@ export interface VerifyApiResult {
   onChain: boolean;
   valid: boolean;
   credentialId: string;
+  /** The authoritative CID: the chain's when anchored, otherwise ours. */
   cid?: string;
+  chainCid?: string;
+  dbCid?: string;
+  /**
+   * Whether the anchored CID and our off-chain index agree. A `mismatch` is
+   * reported but deliberately does not make `valid` false — see the route.
+   */
+  cidAgreement?: "match" | "mismatch" | "chain-only" | "db-only" | "none";
   issuer?: string;
   issuedAt?: number;
   txHash?: string;

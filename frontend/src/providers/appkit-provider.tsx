@@ -44,6 +44,26 @@ if (projectId) {
   });
 }
 
+/**
+ * Importing this module is what runs `createAppKit()` — the component below
+ * renders nothing. Every file that calls `useAppKit`, `useAppKitAccount` or
+ * `useDisconnect` (directly or through `useAppKitWallet`) must therefore import
+ * this module itself, so that initialisation and use sit in the same chunk and
+ * cannot race. There are only three such files:
+ *
+ *   - components/auth/walletconnect-sign-in-button.tsx  (/login, /register/user)
+ *   - components/layout/appkit-profile-dropdown.tsx     ((authenticated) navbar)
+ *   - components/dashboard/appkit-wallet-section.tsx    (/dashboard/settings)
+ *
+ * Both are reached exclusively through `next/dynamic`, and both must stay that
+ * way. Side-effect-on-import is also why this is *not* in the root layout: any
+ * route inheriting a layout that imports it pays to compile the whole AppKit +
+ * Lit graph, even a static marketing page. See docs/dev-performance.md.
+ *
+ * The exported component is a no-op kept only so a consumer can express "AppKit
+ * is initialised below here" in JSX. Importing the module is the part that
+ * matters; wrapping is optional.
+ */
 export function AppKitProvider({ children }: { children: React.ReactNode }) {
   return children;
 }

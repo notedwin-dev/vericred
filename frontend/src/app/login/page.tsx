@@ -4,17 +4,17 @@ import Link from "next/link";
 import { Suspense, useEffect, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn, useSession } from "next-auth/react";
-import { useAppKit } from "@reown/appkit/react";
+// Lazy: this route must not compile @reown/appkit before it can render.
+// See components/auth/walletconnect-sign-in.tsx.
+import { WalletConnectSignIn } from "@/components/auth/walletconnect-sign-in";
 import { toast } from "sonner";
-import { ShieldCheck, Wallet, Loader2 } from "lucide-react";
+import { ShieldCheck, Loader2, MailWarning } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { GitHubIcon, GoogleIcon, LinkedInIcon } from "@/components/icons/brand-icons";
-
-const WALLETCONNECT_CONFIGURED = Boolean(process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID);
 
 /** Only allow same-origin relative paths, rejecting protocol-relative (`//evil.com`) and absolute URLs. */
 function getSafeCallbackUrl(value: string | null): string {
@@ -42,6 +42,8 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<string | null>(null);
+  const [needsVerification, setNeedsVerification] = useState(false);
+  const [isResending, setIsResending] = useState(false);
 
   useEffect(() => {
     if (status === "authenticated") {
@@ -49,6 +51,19 @@ function LoginForm() {
       router.refresh();
     }
   }, [status, callbackUrl, router]);
+
+  // The email-verification link (/api/user/email/verify) lands here for
+  // accounts verifying at registration time, since they aren't signed in yet.
+  useEffect(() => {
+    if (searchParams.get("emailVerified")) {
+      toast.success("Email verified. You can sign in now.");
+      router.replace("/login");
+    } else if (searchParams.get("emailError")) {
+      toast.error("That verification link is invalid or has expired. Request a new one below.");
+      setNeedsVerification(true);
+      router.replace("/login");
+    }
+  }, [searchParams, router]);
 
   useEffect(() => {
     const error = searchParams.get("error");
@@ -80,7 +95,14 @@ function LoginForm() {
       });
 
       if (result?.error) {
-        toast.error("Invalid email or password.");
+        // lib/auth-credentials.ts throws EmailNotVerifiedError for an account
+        // that authenticated correctly but has never proven its email.
+        if ((result as { code?: string }).code === "EmailNotVerified") {
+          setNeedsVerification(true);
+          toast.error("Please verify your email address before signing in.");
+        } else {
+          toast.error("Invalid email or password.");
+        }
         return;
       }
 
@@ -91,6 +113,31 @@ function LoginForm() {
       toast.error("Something went wrong. Please try again.");
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function handleResendVerification() {
+    if (!email) {
+      toast.error("Enter your email address first.");
+      return;
+    }
+    setIsResending(true);
+    try {
+      const res = await fetch("/api/auth/verify-email/resend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Could not send a verification email.");
+        return;
+      }
+      toast.success(data.message);
+    } catch {
+      toast.error("Something went wrong. Please try again.");
+    } finally {
+      setIsResending(false);
     }
   }
 
@@ -118,21 +165,7 @@ function LoginForm() {
           </div>
 
           {/* WalletConnect — primary sign-in method */}
-          {WALLETCONNECT_CONFIGURED ? (
-            <WalletConnectButton />
-          ) : (
-            <Button
-              type="button"
-              size="lg"
-              className="h-11 w-full gap-2 bg-indigo-600 text-white hover:bg-indigo-600/90 dark:bg-indigo-500 dark:hover:bg-indigo-500/90"
-              onClick={() =>
-                toast.info("WalletConnect is not configured. Set NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID in .env.local.")
-              }
-            >
-              <Wallet className="size-4" />
-              Continue with WalletConnect
-            </Button>
-          )}
+          <WalletConnectSignIn />
 
           <div className="flex items-center gap-3">
             <Separator className="flex-1" />
@@ -219,47 +252,44 @@ function LoginForm() {
             </Button>
           </form>
 
-          <p className="text-center text-sm text-muted-foreground">
-            Don&apos;t have an account?{" "}
-            <Link href="/register" className="font-medium text-foreground hover:underline">
-              Sign up
-            </Link>
-          </p>
+          {needsVerification && (
+            <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-800 dark:bg-amber-950/40">
+              <p className="flex items-start gap-2 font-medium">
+                <MailWarning className="mt-0.5 size-4 shrink-0" />
+                Verify your email to continue
+              </p>
+              <p className="mt-1 text-muted-foreground">
+                We sent a link to your inbox when you signed up. It expires after an hour.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-2 h-8 w-full"
+                disabled={isResending}
+                onClick={handleResendVerification}
+              >
+                {isResending ? <Loader2 className="size-4 animate-spin" /> : "Resend verification email"}
+              </Button>
+            </div>
+          )}
+
+          <div className="flex flex-col gap-1 text-center text-sm text-muted-foreground">
+            <p>
+              Don&apos;t have an account?{" "}
+              <Link href="/register" className="font-medium text-foreground hover:underline">
+                Sign up
+              </Link>
+            </p>
+            <p>
+              Signing in as an institution?{" "}
+              <Link href="/login/institution" className="font-medium text-foreground hover:underline">
+                Use the institution form
+              </Link>
+            </p>
+          </div>
         </CardContent>
       </Card>
     </div>
-  );
-}
-
-/**
- * Split out because `useAppKit` throws if `createAppKit` was never called —
- * this component only mounts when NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID is set.
- */
-function WalletConnectButton() {
-  const { open } = useAppKit();
-  const [loading, setLoading] = useState(false);
-
-  async function handleClick() {
-    setLoading(true);
-    try {
-      await open();
-    } catch {
-      toast.error("Failed to open WalletConnect modal.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <Button
-      type="button"
-      size="lg"
-      className="h-11 w-full gap-2 bg-indigo-600 text-white hover:bg-indigo-600/90 dark:bg-indigo-500 dark:hover:bg-indigo-500/90"
-      onClick={handleClick}
-      disabled={loading}
-    >
-      {loading ? <Loader2 className="size-4 animate-spin" /> : <Wallet className="size-4" />}
-      Continue with WalletConnect
-    </Button>
   );
 }

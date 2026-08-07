@@ -1,71 +1,37 @@
-"use client";
-
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
-import { useAppKit } from "@reown/appkit/react";
-import { toast } from "sonner";
-import { ShieldCheck, Wallet, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { GitHubIcon, GoogleIcon, LinkedInIcon } from "@/components/icons/brand-icons";
+import { ArrowRight, Building2, ShieldCheck, User } from "lucide-react";
 
-const WALLETCONNECT_CONFIGURED = Boolean(process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID);
+/**
+ * The split-screen chooser (docs/institution-registration-prd.md Decision 8).
+ * Deliberately carries no form fields of its own — the two paths collect
+ * genuinely different things, so each gets a focused page with its own URL,
+ * back-button behaviour, and bookmark.
+ */
+export const metadata = {
+  title: "Create an account · VeriCred",
+};
+
+const PANELS = [
+  {
+    href: "/register/user",
+    icon: User,
+    eyebrow: "For individuals",
+    title: "I'm collecting credentials",
+    body: "Claim, store and share the certificates institutions issue to you — each one independently verifiable by anyone you send it to.",
+    bullets: ["Claim credentials issued to your email", "A public profile at /u/your-name", "Share a verified link or PDF"],
+  },
+  {
+    href: "/register/institution",
+    icon: Building2,
+    eyebrow: "For institutions",
+    title: "I'm issuing credentials",
+    body: "Issue tamper-proof certificates to your students or staff, one at a time or a whole cohort at once.",
+    bullets: ["Design reusable certificate templates", "Bulk-issue from a CSV", "Revoke with a permanent, auditable reason"],
+    note: "Registrations are reviewed by an admin before you can issue.",
+  },
+];
 
 export default function RegisterPage() {
-  const router = useRouter();
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [oauthLoading, setOauthLoading] = useState<string | null>(null);
-
-  async function handleOAuth(provider: "github" | "google" | "linkedin") {
-    setOauthLoading(provider);
-    try {
-      await signIn(provider, { callbackUrl: "/dashboard" });
-    } finally {
-      setOauthLoading(null);
-    }
-  }
-
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    setIsSubmitting(true);
-    try {
-      const res = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password }),
-      });
-      const data = await res.json();
-
-      if (!res.ok) {
-        toast.error(data.error || "Failed to create account.");
-        return;
-      }
-
-      const result = await signIn("credentials", { email, password, redirect: false });
-      if (result?.error) {
-        toast.success("Account created. Please sign in.");
-        router.push("/login");
-        return;
-      }
-
-      toast.success("Account created successfully.");
-      router.push("/dashboard");
-      router.refresh();
-    } catch {
-      toast.error("Something went wrong. Please try again.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-50 px-6 py-12 dark:bg-black">
       <Link href="/" className="mb-8 flex items-center gap-2 text-lg font-semibold">
@@ -73,169 +39,55 @@ export default function RegisterPage() {
         VeriCred
       </Link>
 
-      <Card className="w-full max-w-sm">
-        <CardContent className="flex flex-col gap-5 pt-2">
-          <div>
-            <h1 className="text-xl font-semibold">Create an account</h1>
-            <p className="text-sm text-muted-foreground">
-              Get started tracking and sharing your credentials.
+      <div className="mb-10 text-center">
+        <h1 className="text-2xl font-semibold sm:text-3xl">Create an account</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Which of these sounds like you?
+        </p>
+      </div>
+
+      <div className="grid w-full max-w-3xl gap-4 sm:grid-cols-2">
+        {PANELS.map((panel) => (
+          <Link
+            key={panel.href}
+            href={panel.href}
+            className="group flex flex-col rounded-xl border bg-card p-6 text-card-foreground transition-all hover:border-foreground/30 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <panel.icon className="size-6 text-muted-foreground transition-colors group-hover:text-foreground" />
+
+            <p className="mt-4 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              {panel.eyebrow}
             </p>
-          </div>
+            <h2 className="mt-1 text-lg font-semibold">{panel.title}</h2>
+            <p className="mt-2 text-sm text-muted-foreground">{panel.body}</p>
 
-          {WALLETCONNECT_CONFIGURED ? (
-            <WalletConnectButton />
-          ) : (
-            <Button
-              type="button"
-              size="lg"
-              className="h-11 w-full gap-2 bg-indigo-600 text-white hover:bg-indigo-600/90 dark:bg-indigo-500 dark:hover:bg-indigo-500/90"
-              onClick={() =>
-                toast.info("WalletConnect is not configured. Set NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID in .env.local.")
-              }
-            >
-              <Wallet className="size-4" />
-              Continue with WalletConnect
-            </Button>
-          )}
+            <ul className="mt-4 flex flex-col gap-1.5 text-sm text-muted-foreground">
+              {panel.bullets.map((bullet) => (
+                <li key={bullet} className="flex items-start gap-2">
+                  <span aria-hidden className="mt-1.5 size-1 shrink-0 rounded-full bg-muted-foreground" />
+                  {bullet}
+                </li>
+              ))}
+            </ul>
 
-          <div className="flex items-center gap-3">
-            <Separator className="flex-1" />
-            <span className="text-xs text-muted-foreground">or continue with</span>
-            <Separator className="flex-1" />
-          </div>
+            {panel.note && (
+              <p className="mt-4 rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">{panel.note}</p>
+            )}
 
-          <div className="grid grid-cols-3 gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              className="h-10 gap-0"
-              disabled={!!oauthLoading}
-              onClick={() => handleOAuth("github")}
-              aria-label="Continue with GitHub"
-            >
-              {oauthLoading === "github" ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <GitHubIcon className="size-4" />
-              )}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="h-10 gap-0"
-              disabled={!!oauthLoading}
-              onClick={() => handleOAuth("google")}
-              aria-label="Continue with Google"
-            >
-              {oauthLoading === "google" ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <GoogleIcon className="size-4" />
-              )}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="h-10 gap-0"
-              disabled={!!oauthLoading}
-              onClick={() => handleOAuth("linkedin")}
-              aria-label="Continue with LinkedIn"
-            >
-              {oauthLoading === "linkedin" ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <LinkedInIcon className="size-4" />
-              )}
-            </Button>
-          </div>
+            <span className="mt-6 flex items-center gap-1.5 text-sm font-medium">
+              Continue
+              <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+            </span>
+          </Link>
+        ))}
+      </div>
 
-          <div className="flex items-center gap-3">
-            <Separator className="flex-1" />
-            <span className="text-xs text-muted-foreground">or email</span>
-            <Separator className="flex-1" />
-          </div>
-
-          <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="name">Full name</Label>
-              <Input
-                id="name"
-                autoComplete="name"
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                autoComplete="new-password"
-                required
-                minLength={8}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">At least 8 characters.</p>
-            </div>
-            <Button type="submit" className="mt-1 h-10" disabled={isSubmitting}>
-              {isSubmitting ? <Loader2 className="size-4 animate-spin" /> : "Create Account"}
-            </Button>
-          </form>
-
-          <p className="text-center text-sm text-muted-foreground">
-            Already have an account?{" "}
-            <Link href="/login" className="font-medium text-foreground hover:underline">
-              Sign in
-            </Link>
-          </p>
-        </CardContent>
-      </Card>
+      <p className="mt-10 text-center text-sm text-muted-foreground">
+        Already have an account?{" "}
+        <Link href="/login" className="font-medium text-foreground hover:underline">
+          Sign in
+        </Link>
+      </p>
     </div>
-  );
-}
-
-/**
- * Split out because `useAppKit` throws if `createAppKit` was never called —
- * this component only mounts when NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID is set.
- */
-function WalletConnectButton() {
-  const { open } = useAppKit();
-  const [loading, setLoading] = useState(false);
-
-  async function handleClick() {
-    setLoading(true);
-    try {
-      await open();
-    } catch {
-      toast.error("Failed to open WalletConnect modal.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <Button
-      type="button"
-      size="lg"
-      className="h-11 w-full gap-2 bg-indigo-600 text-white hover:bg-indigo-600/90 dark:bg-indigo-500 dark:hover:bg-indigo-500/90"
-      onClick={handleClick}
-      disabled={loading}
-    >
-      {loading ? <Loader2 className="size-4 animate-spin" /> : <Wallet className="size-4" />}
-      Continue with WalletConnect
-    </Button>
   );
 }

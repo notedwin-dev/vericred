@@ -46,6 +46,87 @@ describe("GET /api/verify/[credentialId]", () => {
     expect(data.certificate.course.name).toBe(course.name);
   });
 
+  it("reports the chain and database CIDs agreeing", async () => {
+    const { course } = await createIssuerWithCourse();
+    await prisma.certificate.create({
+      data: {
+        credentialId: "VC-2026-AGREE001",
+        recipientName: "Ada Lovelace",
+        courseId: course.id,
+        status: "ACTIVE",
+        cid: "bafy-same-cid",
+      },
+    });
+    vi.mocked(getReadOnlyContract).mockReturnValue({
+      verifyCredential: vi.fn().mockResolvedValue([true, true, "bafy-same-cid", "0xIssuer", 1_700_000_000]),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const { request, params } = verifyRequest("VC-2026-AGREE001");
+    const data = await (await GET(request, { params })).json();
+
+    expect(data.cidAgreement).toBe("match");
+  });
+
+  it("surfaces a divergence between the anchored CID and the off-chain record", async () => {
+    // The chain value used to overwrite the database one without comparison,
+    // so a tampered-with off-chain row still rendered as a valid credential
+    // with nothing to indicate the two disagreed.
+    const { course } = await createIssuerWithCourse();
+    await prisma.certificate.create({
+      data: {
+        credentialId: "VC-2026-DIVERGE1",
+        recipientName: "Ada Lovelace",
+        courseId: course.id,
+        status: "ACTIVE",
+        cid: "bafy-tampered-db-cid",
+      },
+    });
+    vi.mocked(getReadOnlyContract).mockReturnValue({
+      verifyCredential: vi.fn().mockResolvedValue([true, true, "bafy-anchored-cid", "0xIssuer", 1_700_000_000]),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const { request, params } = verifyRequest("VC-2026-DIVERGE1");
+    const data = await (await GET(request, { params })).json();
+
+    expect(data.cidAgreement).toBe("mismatch");
+    expect(data.chainCid).toBe("bafy-anchored-cid");
+    expect(data.dbCid).toBe("bafy-tampered-db-cid");
+    // The chain stays authoritative and the credential stays valid — a
+    // divergence is reported, not treated as revocation.
+    expect(data.cid).toBe("bafy-anchored-cid");
+    expect(data.valid).toBe(true);
+  });
+
+  it("never exposes the award grade on the public endpoint", async () => {
+    // The privacy split: grade exists only inside the encrypted artifact.
+    // If this ever fails, the whole point of encrypting has been undone.
+    const { course } = await createIssuerWithCourse();
+    await prisma.certificate.create({
+      data: {
+        credentialId: "VC-2026-PRIVATE1",
+        recipientName: "Ada Lovelace",
+        courseId: course.id,
+        status: "ACTIVE",
+        cid: "bafy-cid",
+        grade: "First Class Honours",
+      },
+    });
+    vi.mocked(getReadOnlyContract).mockReturnValue({
+      verifyCredential: vi.fn().mockResolvedValue([false, false, "", "", 0]),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const { request, params } = verifyRequest("VC-2026-PRIVATE1");
+    const response = await GET(request, { params });
+    const raw = await response.text();
+
+    expect(raw).not.toContain("First Class Honours");
+    expect(raw).not.toContain("grade");
+    expect(raw).not.toContain("encKeyEnc");
+  });
+
   it("reports exists:false for a credential neither the contract nor the database has seen", async () => {
     vi.mocked(getReadOnlyContract).mockReturnValue({
       verifyCredential: vi.fn().mockResolvedValue([false, false, "", "0x0000000000000000000000000000000000000000", 0]),

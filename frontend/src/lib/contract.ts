@@ -1,4 +1,4 @@
-import { Contract, JsonRpcProvider, type InterfaceAbi, type Signer } from "ethers";
+import { Contract, JsonRpcProvider, Wallet, type InterfaceAbi, type Signer } from "ethers";
 import { CONTRACT_ADDRESS, RPC_URL } from "./config";
 
 // `abi.json` starts life as an empty array (see src/lib/abi.json) and is
@@ -52,4 +52,17 @@ export function getSignerContract(signer: Signer): Contract {
   validateContractConfig();
 
   return new Contract(CONTRACT_ADDRESS!, abi, signer);
+}
+
+/**
+ * Server-side wallet signing as the platform admin, for backend-driven
+ * privileged calls (authorising/removing institutions). Returns null if
+ * `ADMIN_PRIVATE_KEY` isn't configured — callers should treat that as
+ * "admin-only actions are unavailable," not throw.
+ */
+export function getAdminSigner(): Wallet | null {
+  const privateKey = process.env.ADMIN_PRIVATE_KEY;
+  if (!privateKey) return null;
+  const provider = new JsonRpcProvider(RPC_URL);
+  return new Wallet(privateKey, provider);
 }

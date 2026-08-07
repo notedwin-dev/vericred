@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Award, ShieldCheck, ShieldOff, Clock, Plus } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { LinkButton } from "@/components/ui/link-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -38,10 +38,10 @@ export default function IssuerDashboardPage() {
             Manage courses, templates, and issued certificates.
           </p>
         </div>
-        <Button render={<Link href="/issuer/courses/new" />} nativeButton={false} className="gap-1.5">
+        <LinkButton href="/issuer/courses/new" className="gap-1.5">
           <Plus className="size-4" />
           New Course
-        </Button>
+        </LinkButton>
       </div>
 
       <IssuerNav />

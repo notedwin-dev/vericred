@@ -13,6 +13,12 @@ enum Role {
   ADMIN
 }
 
+enum IssuerStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum CertificateStatus {
   PENDING
   /// Recipient has confirmed ownership (issued to their account's email,
@@ -90,7 +96,7 @@ model Issuer {
   user             User      @relation(fields: [userId], references: [id])
   organizationName String
   logo             String?
-  walletAddress    String
+  walletAddress    String    @unique
   /// Platform-custodied wallet used to sign on-chain transactions on this
   /// issuer's behalf when no one from the institution is present to sign
   /// with their own wallet (e.g. a recipient claiming a collection link).
@@ -98,6 +104,11 @@ model Issuer {
   /// `walletAddress`, which the issuer signs into their VeriCred account with.
   operatorAddress  String?   @unique
   operatorKeyEnc   String?
+  /// PENDING until admin approves the self-service registration request
+  /// (User.role stays USER until then); APPROVED activates role:ISSUER and
+  /// on-chain authorisation; REJECTED requires rejectionReason.
+  status           IssuerStatus @default(PENDING)
+  rejectionReason  String?
   courses          Course[]
   templates        CertificateTemplate[]
   createdAt        DateTime  @default(now())
@@ -145,8 +156,48 @@ model Certificate {
   revocationReason String?
   createdAt        DateTime          @default(now())
 
+  /// Wrapped per-certificate AES-256-GCM content key: 32 random bytes, hex
+  /// encoded, then encrypted with ENCRYPTION_KEY via lib/crypto.ts's string
+  /// API — the same at-rest scheme as Issuer.operatorKeyEnc. NULL means the
+  /// row predates encrypted artifacts and its `cid` points at a plaintext PDF.
+  /// Never leaves the server: lib/prisma.ts omits it globally.
+  encKeyEnc        String?
+  /// "sha256:<hex>" of the exact bytes pinned to IPFS (the ciphertext,
+  /// including its VCE1 header). The reference the integrity check re-hashes
+  /// fetched bytes against.
+  contentHash      String?
+  /// CIDv1 recomputed locally from those same bytes before pinning. Equal to
+  /// `cid` when our UnixFS parameters match Pinata's; stored separately so a
+  /// divergence is visible rather than silently papered over.
+  computedCid      String?
+  /// Grade / classification awarded. Rendered into the ENCRYPTED certificate
+  /// document only — never returned by the public verify API and never drawn
+  /// on the public PNG preview. This is the privacy split made real; see
+  /// docs/encrypted-certificates.md.
+  grade            String?
+
+  shares           CertificateShare[]
+
   @@index([recipientId])
   @@index([courseId])
+}
+
+/// A revocable grant letting someone without an account open one certificate's
+/// decrypted document. Deliberately a database grant rather than handing over
+/// the content key: no key material leaves the server, so revoking the share
+/// actually revokes access. See docs/encrypted-certificates.md (D3).
+model CertificateShare {
+  id            String      @id @default(cuid())
+  certificateId String
+  certificate   Certificate @relation(fields: [certificateId], references: [id], onDelete: Cascade)
+  token         String      @unique @default(cuid())
+  createdById   String
+  expiresAt     DateTime?
+  revokedAt     DateTime?
+  viewCount     Int         @default(0)
+  createdAt     DateTime    @default(now())
+
+  @@index([certificateId])
 }
 
 model CollectionLink {
