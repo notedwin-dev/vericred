@@ -54,14 +54,50 @@ describe("revokeCertificateOnChain", () => {
   it("skips when the chain has no record under this credential id", async () => {
     const { course } = await createIssuerWithCourse();
     const certificate = await seedAnchoredCertificate(course.id);
-    // getCredential reverts with CredentialNotFound for anything unanchored.
+    // The shape ethers surfaces for the contract's own CredentialNotFound revert.
     vi.mocked(getReadOnlyContract).mockReturnValue({
-      getCredential: vi.fn().mockRejectedValue(new Error("CredentialNotFound")),
+      getCredential: vi.fn().mockRejectedValue(
+        new Error(
+          `execution reverted (unknown custom error) reason="CredentialNotFound(\"${certificate.credentialId}\")"`
+        )
+      ),
     } as never);
 
     const result = await revokeCertificateOnChain(certificate, "Issued in error");
 
     expect(result).toEqual({ status: "skipped", reason: "not-anchored" });
+  });
+
+  it("reports a failure, not 'not-anchored', when the chain cannot be read at all", async () => {
+    // An RPC outage must never be mistaken for "there is nothing to revoke" —
+    // that would silently downgrade a revocation to off-chain-only.
+    const { course } = await createIssuerWithCourse();
+    const certificate = await seedAnchoredCertificate(course.id);
+    vi.mocked(getReadOnlyContract).mockReturnValue({
+      getCredential: vi.fn().mockRejectedValue(new Error("could not detect network")),
+    } as never);
+
+    const result = await revokeCertificateOnChain(certificate, "Issued in error");
+
+    expect(result).toEqual({ status: "failed", message: "could not detect network" });
+    expect(getSignerContract).not.toHaveBeenCalled();
+  });
+
+  it("does not throw when the admin signer cannot be constructed", async () => {
+    // getAdminSigner builds a Wallet from ADMIN_PRIVATE_KEY and throws on a
+    // malformed key. The documented contract is that this function never throws.
+    const { course } = await createIssuerWithCourse();
+    const certificate = await seedAnchoredCertificate(course.id);
+    vi.mocked(getReadOnlyContract).mockReturnValue({
+      getCredential: vi.fn().mockResolvedValue({ issuer: OWN_WALLET, revoked: false }),
+    } as never);
+    vi.mocked(getAdminSigner).mockImplementation(() => {
+      throw new Error("invalid private key");
+    });
+
+    const result = await revokeCertificateOnChain(certificate, "Issued in error");
+
+    expect(result).toEqual({ status: "failed", message: "invalid private key" });
   });
 
   it("is idempotent — reports a skip rather than reverting on an already-revoked credential", async () => {

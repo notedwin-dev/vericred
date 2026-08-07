@@ -464,7 +464,9 @@ Deferred batch anchoring groups certificates **by owning institution** before tr
 
 ### 8.3 Revocation
 
-Revocation must be anchored, not merely indexed — a withdrawal recorded only in a mutable database is exactly the failure mode the ledger exists to prevent. `PATCH /api/certificates/[id]` therefore calls `revokeCertificateOnChain` before writing the off-chain record.
+Revocation should reach the ledger wherever it can — a withdrawal recorded only in a mutable database is the failure mode the ledger exists to prevent. `PATCH /api/certificates/[id]` therefore **attempts** `revokeCertificateOnChain` before writing the off-chain record.
+
+The attempt is best-effort, and its outcome is reported rather than enforced. It is **skipped** when there is nothing to anchor (the credential was never anchored, or is already revoked on-chain) or when no permitted signer is available, and **failed** when the transaction itself does not land. In every one of those cases the off-chain revocation is still recorded, because a revocation the issuer has asked for must take effect regardless. The result is returned to the caller in an `onChain` field so the interface can say which happened instead of reporting an unqualified success.
 
 Choosing the signer is the whole difficulty, because `VeriCred.sol` accepts a revocation only from the credential's on-chain `issuer` or from the admin, and the issuer is whichever wallet anchored it:
 

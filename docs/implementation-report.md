@@ -2031,7 +2031,7 @@ Two defects were found by this exercise that code reading had not surfaced: the 
 
 Testing is conducted at two levels with different tools and different objectives. Contract tests run against an in-process Hardhat network and assert on-chain behaviour, access control, and revert conditions. Application tests run under Vitest against a real PostgreSQL test database, so that Prisma queries, transaction semantics, and constraint violations are exercised as they behave in production rather than against a mock.
 
-**Table 8.1 — Test suite summary**
+**Table 9.1 — Test suite summary**
 
 | Suite | Framework | Cases | Status |
 |---|---|---|---|
@@ -2043,7 +2043,7 @@ Testing is conducted at two levels with different tools and different objectives
 
 The contract suite is organised into eleven thematic groups.
 
-**Table 8.2 — Contract test coverage by area**
+**Table 9.2 — Contract test coverage by area**
 
 | Suite | Focus |
 |---|---|

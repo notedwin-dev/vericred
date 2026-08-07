@@ -41,18 +41,30 @@ export type RevokeOnChainResult =
 type RevocableCertificate = Pick<Certificate, "credentialId" | "txHash" | "courseId">;
 
 /** The chain's view of a credential, or null if it was never anchored. */
-async function readOnChain(
-  credentialId: string
-): Promise<{ issuer: string; revoked: boolean } | null> {
+type ChainRead =
+  | { kind: "record"; issuer: string; revoked: boolean }
+  /** The contract has no credential under this id. */
+  | { kind: "not-found" }
+  /** The chain could not be read at all — an RPC outage, a bad address, etc. */
+  | { kind: "unreadable"; message: string };
+
+async function readOnChain(credentialId: string): Promise<ChainRead> {
   try {
     const contract = getReadOnlyContract();
     const credential = await contract.getCredential(credentialId);
-    return { issuer: String(credential.issuer), revoked: Boolean(credential.revoked) };
-  } catch {
-    // getCredential reverts with CredentialNotFound for anything never
-    // anchored. Treat any read failure as "nothing to revoke on-chain" — the
-    // caller still records the revocation off-chain either way.
-    return null;
+    return { kind: "record", issuer: String(credential.issuer), revoked: Boolean(credential.revoked) };
+  } catch (error) {
+    // `getCredential` reverts with CredentialNotFound for anything never
+    // anchored, which is an answer rather than a failure. Every other error —
+    // the node being down, a misconfigured address — means we simply do not
+    // know, and must not be reported as "nothing to revoke": that would let a
+    // transient outage silently downgrade a revocation to off-chain-only.
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes("CredentialNotFound")) {
+      return { kind: "not-found" };
+    }
+    console.error(`[revoke] Could not read ${credentialId} from the chain:`, error);
+    return { kind: "unreadable", message };
   }
 }
 
@@ -87,8 +99,11 @@ export async function revokeCertificateOnChain(
   }
 
   const onChain = await readOnChain(certificate.credentialId);
-  if (!onChain) {
+  if (onChain.kind === "not-found") {
     return { status: "skipped", reason: "not-anchored" };
+  }
+  if (onChain.kind === "unreadable") {
+    return { status: "failed", message: onChain.message };
   }
   if (onChain.revoked) {
     // Already revoked on-chain — the contract would revert with
@@ -97,20 +112,24 @@ export async function revokeCertificateOnChain(
     return { status: "skipped", reason: "already-revoked" };
   }
 
-  const course = await prisma.course.findUnique({
-    where: { id: certificate.courseId },
-    include: { issuer: true },
-  });
-  const signer = resolveRevoker(course?.issuer ?? null, onChain.issuer);
-  if (!signer) {
-    console.warn(
-      `[revoke] No signer available to revoke ${certificate.credentialId} on-chain ` +
-        `(anchored by ${onChain.issuer}; ADMIN_PRIVATE_KEY unset and no matching operator wallet).`
-    );
-    return { status: "skipped", reason: "no-signer" };
-  }
-
   try {
+    // Inside the try because both of these can reject: the database may be
+    // unreachable, and getAdminSigner constructs a Wallet from
+    // ADMIN_PRIVATE_KEY, which throws on a malformed key. Left outside, either
+    // would propagate and break this function's no-throw contract.
+    const course = await prisma.course.findUnique({
+      where: { id: certificate.courseId },
+      include: { issuer: true },
+    });
+    const signer = resolveRevoker(course?.issuer ?? null, onChain.issuer);
+    if (!signer) {
+      console.warn(
+        `[revoke] No signer available to revoke ${certificate.credentialId} on-chain ` +
+          `(anchored by ${onChain.issuer}; ADMIN_PRIVATE_KEY unset and no matching operator wallet).`
+      );
+      return { status: "skipped", reason: "no-signer" };
+    }
+
     const contract = getSignerContract(signer);
     const tx = await contract.revokeCredential(certificate.credentialId, reason);
     const receipt = await tx.wait();

@@ -107,6 +107,12 @@ export function VerifyResult({ result }: { result: VerifyApiResult }) {
   const cert = result.certificate;
   const explorerUrl = result.txHash ? getExplorerTxUrl(result.txHash) : null;
 
+  // When the ledger records the revocation, its values are the published ones
+  // and take precedence over the mutable index; otherwise there is nothing on
+  // the chain to prefer. See the revocation detail block below.
+  const revokedAt = result.chainRevoked ? result.chainRevokedAt : undefined;
+  const revocationReason = result.chainRevoked ? result.chainRevocationReason : undefined;
+
   return (
     <Card className={`${config.cardClass} border-2`}>
       <CardHeader>
@@ -191,24 +197,22 @@ export function VerifyResult({ result }: { result: VerifyApiResult }) {
                 <dd className="text-sm">{formatTimestamp(cert.expiresAt)}</dd>
               </div>
             )}
-            {/* Prefer the off-chain timestamp when present, but fall back to the
-                chain's so a credential with no local row still shows when and
-                why it was withdrawn — that detail is published to the ledger
-                precisely so a verifier can read it. */}
-            {(cert?.revokedAt || result.chainRevokedAt) && (
+            {/* Where the chain says revoked, the chain's timestamp and reason
+                are what was published to the permanent audit trail, so they win
+                over the mutable index — showing a locally-edited reason beside
+                a ledger-backed revocation would misrepresent the record. Only
+                when the revocation exists off-chain alone do the local values
+                lead, with the chain's as a fallback either way. */}
+            {(revokedAt || cert?.revokedAt) && (
               <div>
                 <dt className="text-xs font-medium text-muted-foreground">Revoked</dt>
-                <dd className="text-sm">
-                  {cert?.revokedAt
-                    ? formatTimestamp(cert.revokedAt)
-                    : formatTimestamp(result.chainRevokedAt!)}
-                </dd>
+                <dd className="text-sm">{formatTimestamp(revokedAt ?? cert?.revokedAt)}</dd>
               </div>
             )}
-            {(cert?.revocationReason || result.chainRevocationReason) && (
+            {(revocationReason || cert?.revocationReason) && (
               <div className="sm:col-span-2">
                 <dt className="text-xs font-medium text-muted-foreground">Revocation Reason</dt>
-                <dd className="text-sm">{cert?.revocationReason ?? result.chainRevocationReason}</dd>
+                <dd className="text-sm">{revocationReason ?? cert?.revocationReason}</dd>
               </div>
             )}
           </dl>

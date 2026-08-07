@@ -130,21 +130,60 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: "Certificate is already revoked" }, { status: 409 });
   }
 
-  // Anchor first, then record. Either ordering is safe for a verifier — the
-  // endpoint reports a credential as invalid when *either* source says
-  // revoked — but attempting the chain first means a success is never lost to
-  // a subsequent database failure.
+  // Anchor first, then record. Either ordering is safe for a verifier, since
+  // the verify endpoint reports a credential as invalid when *either* source
+  // says revoked. The window that remains is a successful on-chain revocation
+  // whose database write then fails: the chain is correct but our index still
+  // says ACTIVE. That is handled below rather than eliminated — closing it
+  // properly needs a durable record of the intent written before the
+  // transaction is submitted, which is a larger change than this route.
   const onChain = await revokeCertificateOnChain(certificate, reason);
 
-  const updated = await prisma.certificate.update({
-    where: { id },
-    data: {
-      status: "REVOKED",
-      revokedAt: new Date(),
-      revocationReason: reason,
-      revokeTxHash: onChain.status === "revoked" ? onChain.txHash : null,
-    },
-  });
+  const data = {
+    status: "REVOKED" as const,
+    revokedAt: new Date(),
+    revocationReason: reason,
+    // Only write a hash when this attempt produced one. Leaving the column
+    // untouched otherwise means a retry that finds the credential already
+    // revoked on-chain cannot erase the hash an earlier attempt recorded.
+    ...(onChain.status === "revoked" ? { revokeTxHash: onChain.txHash } : {}),
+  };
+
+  let updated;
+  try {
+    updated = await prisma.certificate.update({ where: { id }, data });
+  } catch (dbError) {
+    console.error(
+      `[revoke] Database update failed for ${certificate.credentialId}` +
+        (onChain.status === "revoked" ? ` after a successful on-chain revocation (${onChain.txHash})` : "") +
+        ". Retrying once...",
+      dbError
+    );
+    try {
+      updated = await prisma.certificate.update({ where: { id }, data });
+    } catch (retryError) {
+      // Surface the transaction hash rather than losing it to a 500 — it is
+      // the only handle on an on-chain revocation the index does not reflect,
+      // and a retry of this request would report `already-revoked` and never
+      // learn it. A re-run still converges the status; only the hash is lost.
+      console.error(
+        `[revoke] Database update retry also failed for ${certificate.credentialId}` +
+          (onChain.status === "revoked" ? ` (txHash ${onChain.txHash})` : "") +
+          ". Manual reconciliation needed.",
+        retryError
+      );
+      return NextResponse.json(
+        {
+          error:
+            onChain.status === "revoked"
+              ? "The revocation was recorded on-chain but could not be saved. It will show as revoked to verifiers; please retry to update the record."
+              : "Failed to record the revocation.",
+          onChain,
+        },
+        { status: 500 }
+      );
+    }
+  }
 
   return NextResponse.json({ certificate: updated, onChain });
 }
