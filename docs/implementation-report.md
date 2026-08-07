@@ -2,7 +2,7 @@
 
 ## Part 2 — Solution Implementation Report
 
-**Module:** CT124-3-3-BCD — Blockchain Design and Development
+**Module:** CT124-3-3-BCD — Blockchain Development
 **Institution:** Asia Pacific University of Technology and Innovation
 **Group:** 14
 **Industry sector addressed:** Legal and Intellectual Property (academic credentialing as a proof-of-award instrument)
@@ -462,7 +462,7 @@ struct Credential {
 ```
 *Extract 4.1 — `contracts/VeriCred.sol`, lines 31–48.*
 
-The field ordering is not incidental. The Ethereum Virtual Machine addresses storage in 32-byte words, and the Solidity compiler packs consecutive fields into a single word where their combined width permits (Ethereum Foundation, 2024). Declaring `issuer`, `issuedAt`, `revokedAt`, and `revoked` consecutively yields 20 + 5 + 5 + 1 = 31 bytes, which occupies one slot rather than four. `recipient` and `expiresAt` occupy 25 bytes of the next. Timestamps use `uint40` rather than `uint256` specifically to make this packing possible; the type accommodates Unix seconds until the year 36812, so no practical range is sacrificed.
+The field ordering is not incidental. The Ethereum Virtual Machine addresses storage in 32-byte words (Wood, 2014), and the Solidity compiler packs consecutive fields into a single word where their combined width permits (Ethereum Foundation, 2024). Declaring `issuer`, `issuedAt`, `revokedAt`, and `revoked` consecutively yields 20 + 5 + 5 + 1 = 31 bytes, which occupies one slot rather than four. `recipient` and `expiresAt` occupy 25 bytes of the next. Timestamps use `uint40` rather than `uint256` specifically to make this packing possible; the type accommodates Unix seconds until the year 36812, so no practical range is sacrificed.
 
 Storage is keyed by the keccak256 hash of the human-readable identifier, which yields fixed-size keys:
 
@@ -522,7 +522,7 @@ event CredentialTransferred(
 ```
 *Extract 4.3 — `contracts/VeriCred.sol`, lines 74–102.*
 
-Events serve two functions here. They are the cheapest available form of on-chain storage, costing markedly less than an equivalent state write, and they are permanent: even if the contract's mutable state were later changed, the historical log of what was issued and when cannot be. The three indexed parameters per event — the maximum Solidity permits — allow a client to filter the log by credential, by issuing institution, or by recipient wallet without retrieving and scanning the full history.
+Events serve two functions here. They are the cheapest available form of on-chain record, costing markedly less than an equivalent state write (though, unlike storage, they cannot be read back by the contract itself), and they are permanent: even if the contract's mutable state were later changed, the historical log of what was issued and when cannot be. The three indexed parameters per event — the maximum Solidity permits for a non-anonymous event — allow a client to filter the log by credential, by issuing institution, or by recipient wallet without retrieving and scanning the full history.
 
 ### 4.4 Access Control
 
@@ -557,7 +557,7 @@ modifier onlyInstitution() {
 ```
 *Extract 4.4 — `contracts/VeriCred.sol`, lines 112–140.*
 
-Fifteen custom errors are declared in place of `require` strings. Since Solidity 0.8.4, custom errors encode as a four-byte selector plus ABI-encoded arguments, which is substantially cheaper in both deployment and revert-path gas than storing a revert string in bytecode (Ethereum Foundation, 2024). They also give the front end a machine-readable failure mode: `lib/errors.ts` decodes the selector and maps it to a human-readable message, so a user who attempts to issue a duplicate identifier is told exactly that rather than being shown a generic transaction failure.
+Fifteen custom errors are declared in place of `require` strings. Since Solidity 0.8.4, custom errors encode as a four-byte selector plus ABI-encoded arguments, which is substantially cheaper in both deployment and revert-path gas than storing a revert string in bytecode (Ethereum Foundation, 2024). They also give the front end a recoverable failure mode: `lib/errors.ts` maps each error back to a human-readable message, so a user who attempts to issue a duplicate identifier is told exactly that rather than being shown a generic transaction failure. The mechanism is worth stating precisely, because it is weaker than it could be — `parseContractError` collects candidate strings from the thrown error (`shortMessage`, `reason`, `message`, `info.error.message`, `data`) and **substring-matches the custom error's name** against a hard-coded table. It does not decode the four-byte selector from the ABI. This is adequate in practice but brittle, since it depends on ethers continuing to surface the error name in one of those fields, and is a candidate for hardening.
 
 The constructor makes the deployer both administrator and the first authorised institution, so that a freshly deployed contract is immediately usable:
 
@@ -629,7 +629,7 @@ function issueCredential(
 ```
 *Extract 4.7 — `contracts/VeriCred.sol`, lines 200–233.*
 
-Four preconditions are enforced before any state is written, following the checks-effects-interactions ordering. The existence check is the mechanism enforcing design principle 2: a credential identifier can be anchored exactly once, and any attempt to re-anchor reverts with the offending identifier included in the error payload.
+Four preconditions are enforced before any state is written. (This is input validation rather than the checks-effects-interactions pattern proper, which concerns external calls; `issueCredential` makes none.) The existence check is the mechanism enforcing design principle 2: a credential identifier can be anchored exactly once, and any attempt to re-anchor reverts with the offending identifier included in the error payload.
 
 Existence itself is determined by a non-empty CID rather than by a separate boolean flag:
 
@@ -669,7 +669,9 @@ function issueCredentialBatch(
 ```
 *Extract 4.9 — `contracts/VeriCred.sol`, lines 235–281 (abridged).*
 
-Three implementation details merit comment. The parameters are declared `calldata` rather than `memory`, so array elements are read directly from transaction input without being copied into memory. The loop uses pre-increment `++i`, which avoids the temporary copy that post-increment requires. And the length check is performed once across all four arrays before the loop begins, so a malformed call fails immediately rather than after partially writing state.
+Three implementation details merit comment. The parameters are declared `calldata` rather than `memory`, so array elements are read directly from transaction input without being copied into memory. The loop uses pre-increment `++i`; it should be noted that at the optimiser setting this project configures (200 runs) solc discards the unused post-increment result and emits identical bytecode, so this is a stylistic choice rather than a measurable saving — and that the loop is *not* wrapped in `unchecked { ++i }`, which is the optimisation that would genuinely survive, at roughly 30–40 gas per iteration. And the length check is performed once across all four arrays before the loop begins, so a malformed call fails on its first instruction rather than consuming gas across a partial pass. (State consistency is not at stake: a revert unwinds every write regardless of where it occurs.)
+
+**Measured rather than asserted.** Against the deployed contract, a fifty-item `issueCredentialBatch` consumed 10,701,988 gas — 214,039 per credential — against 245,814 for a single `issueCredential`, a saving of approximately **13%**. Two qualifications follow directly from the measurement and should not be omitted. The dominant cost is per-credential storage rather than the transaction base fee, so the saving is real but modest. And the comment's own example of two hundred graduates in one transaction would require roughly 42.8M gas, **exceeding Ethereum's approximately 30M block gas limit**; the application's hundred-row cap already implies some 21M gas, over half a block. Batch size therefore has a hard ceiling that the design must respect.
 
 ### 4.6 Revocation
 
@@ -703,7 +705,9 @@ function revokeCredential(string calldata credentialId, string calldata reason)
 ```
 *Extract 4.10 — `contracts/VeriCred.sol`, lines 287–312.*
 
-The authorisation check is deliberately positioned *after* the existence and already-revoked checks. This ordering ensures that an unauthorised caller attempting to revoke a nonexistent credential receives `CredentialNotFound` rather than `NotIssuerOrAdmin`, which avoids using the error channel as an oracle for which identifiers exist.
+The authorisation check is positioned *after* the existence and already-revoked checks, so that the most specific diagnostic is returned first: a caller attempting to revoke a nonexistent credential receives `CredentialNotFound` rather than the less informative `NotIssuerOrAdmin`.
+
+It should be noted that this ordering does make the revert channel distinguish existing from nonexistent identifiers for an unauthorised caller. That is not a disclosure concern here, because `verifyCredential` is already public and free — anyone may establish the same fact directly, at no cost and without a transaction. Were existence not already public, the checks would need to be ordered the other way round.
 
 The mandatory reason is an accountability mechanism rather than a data-quality one. Because the reason is published to a permanent, world-readable log, an institution cannot quietly withdraw an award; the withdrawal and its stated grounds become part of the same immutable record as the original conferral.
 
@@ -1019,7 +1023,9 @@ export const prisma =
 ```
 *Extract 5.4 — `frontend/src/lib/prisma.ts`.*
 
-Exactly one module re-enables the column, on the single query that legitimately requires it. The defaults are therefore secure, and a newly written route inherits that security without its author needing to know that the column exists.
+Exactly two modules re-enable the column, both on the decryption path: `api/certificates/[id]/document/route.ts` and `lib/certificate-share.ts`. Neither serialises the row it retrieves. The defaults are therefore secure, and a newly written route inherits that security without its author needing to know that the column exists.
+
+*(The doc comment reproduced above names `lib/certificate-document.ts` as the single opt-in site. That comment is stale: the module receives the key from its callers rather than querying for it. The comment should be corrected in the source.)*
 
 ### 5.7 Seeding
 
@@ -1064,7 +1070,7 @@ The application uses the Next.js 15 App Router, in which the directory tree unde
 | `/collect/[token]` | Authenticated | Collection-link claim page |
 | `/dashboard`, `/dashboard/settings` | Recipient | Credential list; profile, e-mail, linked accounts, wallet |
 | `/issuer`, `/issuer/courses`, `/issuer/templates` | Issuer | Issuance panel, course and template management, collection links |
-| `/admin` | Administrator | Institution approval, on-chain authorisation, override revocation |
+| `/admin` | Administrator | Institution approval and on-chain authorisation |
 
 Thirty-six route handlers under `src/app/api/` implement the HTTP interface, alongside 22 rendered pages. Route groups are used to apply shared authorisation: everything under `(authenticated)/` inherits a layout that resolves the session server-side and redirects unauthenticated visitors, so no individual page repeats that check.
 
@@ -1076,7 +1082,7 @@ Authentication is implemented with Auth.js v5 and the Prisma adapter, offering s
 
 | Method | Provider | Notes |
 |---|---|---|
-| WalletConnect / injected wallet | `wallet` credentials provider | Sign-In with Ethereum (EIP-4361); primary method |
+| WalletConnect / injected wallet | `wallet` credentials provider | Sign-In with Ethereum (Ethereum Improvement Proposals, 2021); primary method |
 | GitHub | OAuth | |
 | Google | OAuth | |
 | LinkedIn | OAuth | |
@@ -1125,7 +1131,9 @@ async authorize(credentials, request) {
 ```
 *Extract 6.1 — `frontend/src/lib/auth.ts`, lines 100–167 (abridged).*
 
-Three defences operate here. The signature is verified against the message using the SIWE library, establishing control of the private key. The nonce is bound to the session's CSRF token and checked server-side, so a message captured from one session cannot be replayed in another; because the CSRF token rotates on successful sign-in, the nonce is effectively single-use. And `assertWalletIsNotInstitution` refuses any address registered as an institution's wallet, preventing an organisational identity from being used as a personal login.
+Three defences operate here. The signature is verified against the message using the SIWE library, establishing control of the private key. The nonce is bound to the session's CSRF token and checked server-side, so a message captured from one session cannot be replayed in another. And `assertWalletIsNotInstitution` refuses any address registered as an institution's wallet, preventing an organisational identity from being used as a personal login.
+
+The cross-session replay defence is sound. A stronger property is sometimes claimed for this construction — that the CSRF token rotates on successful sign-in, rendering each nonce single-use — and it is **not substantiated here**: nothing in the codebase rotates the token, and Auth.js does not regenerate the CSRF cookie per sign-in by default. The claim is therefore withheld pending evidence.
 
 Authorisation rules themselves are deliberately factored into `lib/auth-credentials.ts`, which imports nothing from `next-auth`. This makes the rules directly unit-testable without booting the framework; `lib/auth.ts` performs only the adaptation of a domain `AuthorizationError` into the `CredentialsSignin` subclass that Auth.js requires in order to propagate an error code to the sign-in URL.
 
@@ -1291,7 +1299,9 @@ The CSV mode applies the same pattern but anchors the whole cohort in a single `
 
 An issue arose during development that is worth documenting because its cause is specific to the App Router's compilation model. Any module imported by the root layout enters the compilation unit of *every* route. `AppKitProvider` invokes `createAppKit()` at module scope, pulling in the Reown AppKit package (51 MB on disk, plus the Lit web-component runtime); `Web3Provider` pulls in ethers (10 MB). Both were initially mounted in `app/layout.tsx`, with the consequence that the static landing page compiled the entire WalletConnect stack — 9,166 modules and a 47.7-second first compile in development — and that approximately 900 kB of AppKit code appeared in the production "First Load JS shared by all", so that every anonymous credential-verification visitor downloaded it.
 
-The remedy was to scope both providers per route. `Web3Provider` is mounted only in the layouts of the six route segments that require contract access; `AppKitProvider` is reached exclusively through `next/dynamic` from the three components that use it. The same landing page then compiles 1,147 modules in 4.5 seconds. The full analysis and benchmark harness are recorded in `docs/dev-performance.md`.
+The remedy was to scope both providers per route. `Web3Provider` is mounted only in the layouts of the six route segments that require contract access; `AppKitProvider` is reached exclusively through `next/dynamic` from the three components that use it.
+
+Two distinct measurements support this, and they must be kept separate because they were taken on different bundlers. Removing `AppKitProvider` from the root layout, measured on **webpack** with no other change, took the landing page from **9,166 modules to 1,147** and its first compile from **47.7s to 8.3s**. The 4.5-second figure comes from a separate **Turbopack** cold-isolate run whose corresponding "before" is **28.9s**, not 47.7s; pairing 47.7s with 4.5s would cross the two harnesses. A third of the original figure is attributable to neither change — switching bundler alone accounted for 47.7s → 27.1s. The ~900 kB reduction in shared First Load JS is independent of bundler. The full analysis and benchmark harness are recorded in `docs/dev-performance.md`.
 
 Two further measures address perceived rather than actual latency. Every route provides a `loading.tsx`, establishing a Suspense boundary without which the App Router cannot commit a new URL until the server component payload resolves — leaving the address bar apparently frozen for the duration. Because that fallback nonetheless ships *inside* the payload the router is awaiting, it does not cover the interval between the click and the URL changing; a `LinkButton` component closes that final gap by swapping its label for a spinner on `useLinkStatus()`, which reacts to the click itself.
 
@@ -1357,7 +1367,7 @@ export async function generateCertificate(
 ```
 *Extract 7.1 — `frontend/src/lib/generate-certificate.tsx`, lines 77–110 (abridged).*
 
-The `finally` block zeroes the content key buffer whether or not the operation succeeded, so that the plaintext key is not left resident in memory for the garbage collector to reclaim at leisure.
+The `finally` block zeroes the content key buffer whether or not the operation succeeded. This is defence-in-depth rather than a guarantee, and the limit is worth stating: the same function evaluates `encrypt(key.toString("hex"))`, which materialises an immutable JavaScript string holding the identical key material. That second copy cannot be zeroed and is reclaimed only when the garbage collector chooses to. Zeroing the buffer remains worth doing; it should not be read as a claim that no plaintext key copy survives in memory.
 
 The artifact format is defined in `lib/crypto.ts`. A four-byte magic prefix serves as an artefact-level discriminator that does not depend on any database flag:
 
@@ -1391,7 +1401,7 @@ export function encryptBuffer(plaintext: Buffer, key: Buffer, aad?: Buffer): Buf
 ```
 *Extract 7.2 — `frontend/src/lib/crypto.ts`, lines 7–91 (abridged).*
 
-AES-256-GCM is an authenticated encryption mode: tampering with the ciphertext, the initialisation vector, or the associated data causes `decipher.final()` to throw rather than to return plausible-looking rubbish. Binding the credential identifier in as associated data means that an artefact lifted from one certificate and served under another's identifier fails authentication instead of decrypting cleanly.
+AES-256-GCM is an authenticated encryption mode (Dworkin, 2007): tampering with the ciphertext, the initialisation vector, or the associated data causes `decipher.final()` to throw rather than to return plausible-looking rubbish. Binding the credential identifier in as associated data means that an artefact lifted from one certificate and served under another's identifier fails authentication instead of decrypting cleanly.
 
 **The privacy split.** Encryption alone would have protected very little, and this deserves explicit statement. The rendered PDF carries recipient name, course, issuer, issue date, credential identifier, and a QR code — every one of which the unauthenticated `GET /api/verify/[credentialId]` endpoint already returns. Encrypting a document containing nothing non-public closes only one narrow vector: indefinite public retrievability of the file by anyone who has ever seen the CID. The implemented remedy is therefore twofold. The artefact is encrypted, *and* it is given content that the public interface withholds — the awarded `grade`. That column is rendered onto the encrypted document only; it is absent from the public verification response and from the public preview image. Without a field the public API refuses to return, the hybrid-privacy claim would be rhetorical rather than literal.
 
@@ -1541,7 +1551,7 @@ const cidAgreement: "match" | "mismatch" | "chain-only" | "db-only" | "none" =
 ```
 *Extract 7.6 — `frontend/src/app/api/verify/[credentialId]/route.ts`, lines 74–91.*
 
-The strongest form of verification, however, is not a comparison of stored strings but a re-derivation from bytes. `lib/integrity.ts` retrieves the artefact using the CID from the ledger and re-hashes what it receives:
+The strongest form of verification, however, is not a comparison of stored strings but a re-derivation from bytes — the property of content addressing identified by Benet (2014). `lib/integrity.ts` retrieves the artefact using the CID from the ledger and re-hashes what it receives:
 
 ```typescript
 /**
@@ -1590,7 +1600,9 @@ export async function checkArtifactIntegrity(input: IntegrityInput): Promise<Int
 
 Two methods are attempted, strongest first. The `cid` method re-derives from the retrieved bytes the very value that is anchored on the ledger, which closes even the case of a dishonest gateway, because the anchored value is not the platform's to forge. The `content-hash` method compares against the SHA-256 digest recorded at issuance; this remains a genuine re-hash of retrieved bytes, and is sound because the *retrieval key* came from the ledger, but it is weaker against a gateway colluding with a compromised database.
 
-Critically, no decryption key participates in this operation. Hashing ciphertext is exactly as conclusive as hashing plaintext, and it follows that encrypting certificates costs public verifiability nothing whatsoever — a verifier who cannot read the document can still prove it has not been altered.
+Critically, no decryption key participates in this operation. Hashing ciphertext is exactly as conclusive as hashing plaintext, and it follows that encrypting certificates costs **tamper-evidence** nothing — a verifier who cannot read the document can still prove it has not been altered.
+
+The stronger phrasing carried in the source comment quoted above, that encryption "costs public verifiability nothing", is worth qualifying rather than repeating. Encryption does cost something real: an anonymous party can no longer *read* what was anchored, only establish that it is unaltered. That loss of public inspectability is precisely why the server-rendered PNG preview of §7.3 exists.
 
 The gateway is treated as an untrusted third party. `fetchFromGateway` imposes both a fifteen-second timeout and a 20 MB size cap, re-checking the actual byte count after download because the `content-length` header is advisory and may be absent or false.
 
@@ -1664,15 +1676,18 @@ stateDiagram-v2
     PENDING --> ACTIVE: anchored — interactive or deferred
     PENDING --> CLAIMED: recipient claims, but no wallet yet
     CLAIMED --> ACTIVE: wallet linked → autoAnchorCertificate
-    ACTIVE --> REVOKED: revokeCredential(id, reason)
-    ACTIVE --> EXPIRED: block.timestamp > expiresAt
+    PENDING --> REVOKED: revoked (off-chain only)
+    CLAIMED --> REVOKED: revoked (off-chain only)
+    ACTIVE --> REVOKED: revoked (off-chain only)
 ```
 
-**Figure 7.2 — Certificate lifecycle states.**
+**Figure 7.2 — Certificate lifecycle states.** Two omissions are deliberate. `EXPIRED` is defined in the `CertificateStatus` enumeration and read in several places, but **no code path ever assigns it**: expiry is evaluated on-chain by `verifyCredential` against `block.timestamp`, and derived at render time in the interface. There is no scheduled job and no lazy transition, so the enumeration value is effectively dead storage. And the three transitions into `REVOKED` are marked off-chain only, for the reason given in §7.6.
 
 ### 7.6 Revocation
 
-Revocation is initiated from the issuer or administrator panel and signed on-chain, then reflected in the index. The verification endpoint combines both sources conservatively:
+Revocation is initiated from the issuer panel and recorded in the off-chain index by `PATCH /api/certificates/[id]`, which writes `status`, `revokedAt` and `revocationReason`.
+
+**It is not currently anchored on-chain.** `VeriCred.sol` implements `revokeCredential(id, reason)` and the contract suite covers it, but no application code invokes it: `handleRevoke` in `app/(authenticated)/issuer/courses/[id]/page.tsx` issues the `PATCH` and nothing else. The doc comment on that route handler stating the transaction "is signed client-side" describes an intention rather than the code. The consequence is that a revoked credential's on-chain `isValid()` still returns `true`, and the "Revoked" verdict a verifier sees is produced entirely by the off-chain cross-check below. Revocation therefore lives only in the mutable index — precisely the property the ledger exists to supply — and closing this gap is the first item of §9.7. The verification endpoint combines both sources conservatively:
 
 ```typescript
 // Cross-check against the off-chain record: a certificate revoked here
@@ -1722,7 +1737,9 @@ const [, updatedIssuer] = await prisma.$transaction([
 ```
 *Extract 7.10 — `frontend/src/app/api/institutions/[id]/approve/route.ts`, lines 41–83 (abridged).*
 
-The ordering is deliberate. Both on-chain authorisations — the institution's own wallet and its newly provisioned operator wallet — must succeed before any role change occurs, and the two database writes then execute in a single transaction. A failed transaction therefore leaves the system exactly as it was: no half-promoted account able to issue certificates that the contract will reject, and no authorised wallet belonging to an account that is not an issuer. The welcome e-mail is sent only afterwards, and a failure to send is logged and reported rather than thrown, since it must not undo an approval that has already landed on the ledger.
+The ordering is deliberate. Both on-chain authorisations — the institution's own wallet and its newly provisioned operator wallet — must succeed before any role change occurs, and the two database writes then execute in a single transaction. No half-promoted account can therefore exist, able to issue certificates that the contract would reject. The welcome e-mail is sent only afterwards, and a failure to send is logged and reported rather than thrown, since it must not undo an approval that has already landed on the ledger.
+
+The guarantee must, however, be stated more narrowly than "all-or-nothing", because **the on-chain half is not atomic**. Two independent transactions are sent, with no compensating `removeInstitution`. Should the first confirm and the second revert, the route returns 500 with the institution's wallet permanently authorised on-chain while `Issuer.status` remains `PENDING` — and a retry calls `createOperatorWallet()` afresh, orphaning the previously authorised operator address. The defensible statement is therefore: *the database writes are atomic, and no role is granted unless both on-chain authorisations succeeded; but a partial on-chain failure can leave an authorisation in place that a re-run does not clean up.* Full atomicity would require a batching function on the contract, which `VeriCred.sol` does not currently provide.
 
 `authoriseInstitution` carries the `onlyAdmin` modifier, so this is one of the two operations that require `ADMIN_PRIVATE_KEY`; where it is unset, the route returns HTTP 501 with an actionable message rather than failing opaquely.
 
@@ -1792,7 +1809,7 @@ The contract suite is organised into eleven thematic groups.
 | Batch issuing | Length-mismatch detection, per-item validation, multi-item emission |
 | Verifying | `exists`/`valid` separation, returned tuple correctness |
 | Revoking | Authority, mandatory reason, double-revocation rejection, append-only semantics |
-| Tamper detection | CID divergence between a presented file and the anchored fingerprint |
+| Tamper detection | That a credential ID resolves to exactly the CID anchored for it, so a substituted fingerprint is detectable |
 | Enumeration | Pagination bounds, out-of-range offsets, totals |
 | Expiry | Past-date rejection, validity transition at the boundary, expired-but-revocable |
 | Recipient tracking | Per-recipient index correctness across multiple issuances |
@@ -1803,12 +1820,12 @@ Tests are constructed around `loadFixture`, which snapshots a deployed state and
 ```bash
 $ npm run test
 ...
-  64 passing (3s)
+  64 passing (2s)
 ```
 
 ### 8.3 Application Tests
 
-The 214 application tests distribute across route handlers (approximately 118 cases) and domain libraries (approximately 96 cases), covering issuance, verification, claiming, collection links, institution approval and rejection, wallet linking, e-mail verification, sharing, encryption, content addressing, integrity, and navigation logic.
+The 214 application tests distribute across route handlers (113 cases) and domain libraries (101 cases), covering issuance, verification, claiming, collection links, institution approval and rejection, wallet linking, e-mail verification, sharing, encryption, content addressing, integrity, and navigation logic.
 
 Authentication is stubbed through a purpose-built `mockAuthSession` helper rather than through `vi.mocked`, because NextAuth v5's overloaded `auth()` signature does not mock reliably by the latter route.
 
@@ -1824,7 +1841,7 @@ The following sequence exercises the complete system and corresponds to the demo
 
 1. **Issue.** Sign in as the seeded issuer, create a template and a course, and issue a certificate. Observe the PDF being generated, encrypted, and pinned, and the credential being anchored on-chain from the connected wallet.
 2. **Verify.** In a private browsing window — no account, no wallet — visit `/verify/[credentialId]` and observe the "Valid" result together with the issuer, date, CID, and transaction hash.
-3. **Detect tampering.** Alter the certificate file and re-verify. The recomputed CID no longer matches the anchored value, and the integrity check reports a mismatch.
+3. **Detect tampering.** A pinned file cannot itself be altered — modifying it yields different bytes, which content-addressing places at a *different* CID. Demonstrate this instead by pointing the off-chain record at other bytes: edit the row’s `cid`, then re-verify. `cidAgreement` reports `mismatch` against the chain, and the integrity check, which retrieves by the chain’s CID, fails to reconcile the retrieved bytes with `contentHash`.
 4. **Revoke.** Revoke the credential with a reason, then re-verify: the result becomes "Revoked", the reason is displayed, and the original issuance event remains on the ledger.
 5. **Collect.** Generate a collection link, claim it as a different user, and observe the certificate appearing on that user's dashboard and being anchored automatically.
 6. **Inspect the proof.** Follow the CID to the IPFS gateway and observe that the retrieved artefact is opaque ciphertext, and the transaction hash to the ledger record.
@@ -1847,7 +1864,9 @@ There is deliberately no route through the application by which a user may becom
 
 Reproducing Pinata's CIDv1 requires matching its UnixFS parameters — chunker, layout, `rawLeaves`, directory wrapping — which Pinata does not document. Neither development nor continuous integration can discover the correct answer, because `lib/ipfs.ts` takes the mock branch without credentials. An assertion on the recomputed value would therefore constitute a production-only tripwire, failing every issuance at the moment real credentials were first configured and being discovered live.
 
-Accordingly, `computeCidV1` returns `null` rather than throwing, a divergence is logged and persisted rather than treated as fatal, and hard failure sits behind an `IPFS_REQUIRE_CID_MATCH` flag that defaults to off, to be enabled only once calibration against real pins has observed agreement. **The consequence, stated plainly: the `computedCid === cid` verification path is not exercised by continuous integration and can only be validated against a real Pinata pin.** The `contentHash` path, which is deterministic and identical across all environments, carries the load in the interim.
+Accordingly, `computeCidV1` returns `null` rather than throwing, and a divergence is logged and persisted rather than treated as fatal. **No hard-failure mode is implemented**; a configuration flag of that kind is proposed in `docs/encrypted-certificates.md` and remains future work. **The consequence, stated plainly: the `method: "cid"` verification path is not exercised by continuous integration and can only be validated against a real Pinata pin.** The `contentHash` path, which is deterministic and identical across all environments, carries the load in the interim.
+
+A second, sharper limitation sits alongside it. `checkArtifactIntegrity` never compares against the stored `computedCid`: it recomputes a CID from the freshly fetched bytes and compares *that* against `cid`, using the stored column only as a truthiness gate to decide whether to attempt the stronger method at all. The column therefore records what was derived at issuance without functioning as a reference value at verification time.
 
 ### 9.4 Legacy Rows
 
@@ -1857,16 +1876,32 @@ Certificates issued before encryption was introduced have `encKeyEnc IS NULL` an
 
 The authoritative encrypted document is drawn by `@react-pdf/renderer` in Helvetica; the public PNG preview is drawn by satori in Geist. Both read the same template layout and the same fields, so wording, colour, and structure remain in step, but glyph metrics differ. Unifying them would require a second font pipeline for `@react-pdf`, which accepts only TTF and OTF. Since the two are already different documents by design, this is accepted as a visible trade-off rather than treated as a defect.
 
-### 9.6 Other Limitations
+### 9.6 Unimplemented Behaviour the Design Presupposes
+
+The limitations below are of a different character from those above: each is a place where the architecture assumes behaviour the application does not currently perform. They are enumerated rather than summarised, because an undeclared limitation is worse than a declared one.
+
+**1. On-chain revocation is not invoked.** The single largest gap between the design and the delivered system, treated at length in §7.6. `revokeCredential` is implemented on the contract and covered by the test suite; no application code calls it. A revoked credential's on-chain `isValid()` still returns `true`, and revocation consequently lives only in the mutable index — the one property the ledger exists to provide. A verifier bypassing the API and querying the contract directly would be told a revoked credential is valid. The administrator panel, moreover, has no revocation control at all, despite the administrator holding override authority on the contract.
+
+**2. The `EXPIRED` status is never written.** Defined in the enumeration and read in several places, but assigned by no code path. See Figure 7.2.
+
+**3. Institution approval is not atomic on-chain.** Two independent `authoriseInstitution` transactions with no compensating rollback; a partial failure strands an authorisation that a retry does not clean up. See §7.7.
+
+**4. `computedCid` carries no independent evidential weight.** The integrity check recomputes from fetched bytes and compares against `cid`, using the stored column only as a gate. See §9.3.
+
+**5. Operator-wallet decryption failure is not handled as designed.** `getOperatorSigner` is intended to return `null` on any problem so that callers may treat it as "cannot auto-anchor for this issuer". It does so for a missing wallet and for an address mismatch — but where `operatorKeyEnc` is corrupt, `decrypt()` throws, and both call sites in `lib/anchor.ts` invoke the function *outside* their `try` blocks. A tampered column therefore produces a 500 on the collection-link claim route, after the certificate row and the incremented link counter have already been committed.
+
+**6. The document path does silently re-render for legacy rows.** §7.8 states that retrieval failure returns 502 rather than falling back to a re-render. That holds for encrypted rows; rows with no content key are re-rendered from PostgreSQL by design, since their pinned file is a plaintext PDF and there is nothing to decrypt. The `contentHash` comparison is also skipped where that column is null but `encKeyEnc` is set.
+
+### 9.7 Other Limitations
 
 - **Local deployment only.** The contract is deployed to a Hardhat node at chain 31337. Deployment to a public testnet would require a funded deployer account and a block explorer URL; the code path is otherwise unchanged, as the explorer link is rendered conditionally on `NEXT_PUBLIC_BLOCK_EXPLORER_URL` being set.
 - **`transferCredential` is not yet surfaced.** The contract implements wallet migration and it is covered by thirteen tests, but no front-end control currently invokes it; changing a linked wallet does not presently transfer existing credentials on-chain.
 - **No custody wallet on e-mail signup.** `docs/PRD.md` §F2 anticipated generating a custody wallet for email-and-password users. The `custodyAddress` and `custodyKeyEnc` columns exist but nothing populates them; such users have no wallet until they link one.
 - **Holder download requires real Pinata credentials.** In local development the mock CID resolves to nothing, so this path returns an honest HTTP 502 rather than silently falling back to a re-render.
 
-### 9.7 Future Work
+### 9.8 Future Work
 
-Priorities for continued development are: surfacing `transferCredential` in the settings interface so that wallet migration completes end-to-end; deploying to a public testnet with a block explorer configured; calibrating `computeCidV1` against live pins and enabling `IPFS_REQUIRE_CID_MATCH`; and moving `ENCRYPTION_KEY` and `ADMIN_PRIVATE_KEY` into a managed key service rather than environment variables.
+In priority order: **wiring `revokeCredential` into the revocation flow**, so that withdrawal is anchored rather than merely indexed, and adding the corresponding administrator control; making institution approval recoverable on-chain, whether by a batching function on the contract or by a compensating `removeInstitution`; surfacing `transferCredential` in the settings interface so that wallet migration completes end-to-end; moving `getOperatorSigner` inside its callers' `try` blocks; calibrating `computeCidV1` against live pins and adding the hard-failure mode proposed in `docs/encrypted-certificates.md`; deploying to a public testnet with a block explorer configured; and moving `ENCRYPTION_KEY` and `ADMIN_PRIVATE_KEY` into a managed key service rather than environment variables.
 
 ---
 
@@ -1876,17 +1911,15 @@ This report has documented the implementation of VeriCred, a decentralised appli
 
 All four technical requirements of §2.1 of the brief are satisfied and evidenced. A front end is built with Next.js 15 and React 19 (§6). It is linked to a local PostgreSQL database through Prisma, comprising ten models across eight versioned migrations (§5). A Solidity contract is deployed to a local Hardhat node at chain 31337 by an automated script (§3.4, §4.10). And the front end is linked to that contract through ethers.js v6, in both server-side and client-side forms, with the ABI and address propagated automatically from the deployment artefacts (§3.5, §6.4).
 
-The central technical contribution is the hybrid storage model and its rigorous application. Only wallet addresses, an IPFS content identifier, and lifecycle metadata reach the ledger; the certificate document is encrypted with AES-256-GCM under a per-certificate key before pinning; personal data remains in a private, mutable relational index. Because an IPFS CID is a hash of the file's own bytes, this arrangement yields tamper-evidence without publishing anything personal — and because integrity checking re-hashes ciphertext, a verifier who cannot read the document can nonetheless prove that it has not been altered. Encryption therefore costs public verifiability nothing, which is the property that makes the whole arrangement coherent.
+The central technical contribution is the hybrid storage model and its rigorous application. Only wallet addresses, an IPFS content identifier, and lifecycle metadata reach the ledger; the certificate document is encrypted with AES-256-GCM under a per-certificate key before pinning; personal data remains in a private, mutable relational index. Because an IPFS CID is a hash of the file's own bytes, this arrangement yields tamper-evidence without publishing anything personal — and because integrity checking re-hashes ciphertext, a verifier who cannot read the document can nonetheless prove that it has not been altered. Encryption therefore costs tamper-evidence nothing, which is the property that makes the whole arrangement coherent; what it does cost is public inspectability, which the server-rendered preview restores.
 
-The implementation is validated by 278 automated tests, all passing: 64 against the contract and 214 against the application. Section 9 documents, without minimisation, the four respects in which the delivered system departs from the Part 1 proposal or leaves a path incompletely validated. Stating those honestly is judged more valuable than a claim of completeness that the code would not support.
+The implementation is validated by 278 automated tests, all passing: 64 against the contract and 214 against the application. Section 9 documents, without minimisation, both the respects in which the delivered system departs from the Part 1 proposal and the six places where the architecture presupposes behaviour the application does not yet perform — chief among them that revocation, though implemented and tested on the contract, is not currently anchored on-chain. Stating those honestly is judged more valuable than a claim of completeness that the code would not support.
 
 ---
 
 ## 11. References
 
 Benet, J. (2014) *IPFS — Content Addressed, Versioned, P2P File System*. arXiv:1407.3561. Available at: https://arxiv.org/abs/1407.3561
-
-Chalkias, K., Chatzigiannis, P. and Ji, Y. (2022) 'Broken Proofs of Solvency in Blockchain Custodial Wallets and Exchanges', in *Financial Cryptography and Data Security*. Springer.
 
 Dworkin, M. (2007) *Recommendation for Block Cipher Modes of Operation: Galois/Counter Mode (GCM) and GMAC*. NIST Special Publication 800-38D. National Institute of Standards and Technology.
 
@@ -1896,6 +1929,10 @@ Ethereum Improvement Proposals (2021) *EIP-4361: Sign-In with Ethereum*. Availab
 
 Nakamoto, S. (2008) *Bitcoin: A Peer-to-Peer Electronic Cash System*. Available at: https://bitcoin.org/bitcoin.pdf
 
+Wood, G. (2014) *Ethereum: A Secure Decentralised Generalised Transaction Ledger*. Ethereum Yellow Paper.
+
+### Documentation and tooling
+
 Nomic Foundation (2024) *Hardhat Documentation*. Available at: https://hardhat.org/docs
 
 Prisma Data (2025) *Prisma ORM Documentation*. Available at: https://www.prisma.io/docs
@@ -1903,8 +1940,6 @@ Prisma Data (2025) *Prisma ORM Documentation*. Available at: https://www.prisma.
 Protocol Labs (2024) *Multiformats: CID Specification*. Available at: https://github.com/multiformats/cid
 
 Vercel (2025) *Next.js Documentation — App Router*. Available at: https://nextjs.org/docs/app
-
-Wood, G. (2014) *Ethereum: A Secure Decentralised Generalised Transaction Ledger*. Ethereum Yellow Paper.
 
 ---
 

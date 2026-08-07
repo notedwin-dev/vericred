@@ -4,7 +4,7 @@
 
 VeriCred is a blockchain-based Academic Credential Verification System similar to Accredible and Credly. It anchors IPFS CIDs of encrypted certificate PDFs on-chain, providing tamper-proof, instantly verifiable academic credentials.
 
-**Module:** CT124-3-3-BCD (Blockchain Design and Development)
+**Module:** CT124-3-3-BCD (Blockchain Development)
 **Team:** Group 14, APU
 **License:** MIT
 

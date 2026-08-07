@@ -1,6 +1,6 @@
 # VeriCred — Institution Registration & Wallet Architecture PRD
 
-**Module:** CT124-3-3-BCD (Blockchain Design and Development)
+**Module:** CT124-3-3-BCD (Blockchain Development)
 **Team:** Group 14, APU
 **Status:** Design complete, pending implementation
 **Date:** 2026-08-04
