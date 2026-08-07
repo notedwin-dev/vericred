@@ -2296,3 +2296,5 @@ The responsibilities below indicate where each member's effort was concentrated.
 | Leanard Tang YiShiun | TP070029 | Initial `VeriCred.sol` implementation — the credential registry, access-control model, issuance and revocation semantics — which the group then revised iteratively during the front-end build. Hardhat contract test suite. | 25% |
 | Low Teck Chi | TP064234 | Documentation: the setup guide (`04_setup.md`), including the environment reference and troubleshooting, and the assumptions document (`02_assumptions.md`). Part 1 proposal research and write-up. | 25% |
 | Tan Jun Hong | TP071266 | Documentation: the system design document (`03_design.md`), and compilation and review of this implementation report. Demonstration preparation. | 25% |
+
+**A note on repository history.** The commit log records implementation work only — it is almost entirely front-end changes and merge commits authored by Ng Jian Hwa, together with the initial contract from Leanard Tang YiShiun. Report and documentation work was not carried out through version control. Commit authorship therefore measures who implemented, not how the responsibilities above were divided.
