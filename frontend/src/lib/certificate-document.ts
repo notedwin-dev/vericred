@@ -33,7 +33,7 @@ export class DocumentUnavailableError extends Error {}
  *    for should never reach a decryptor, let alone a user.
  *  - **Legacy.** Rows issued before encryption have no key, and their pinned
  *    file is a plaintext PDF that is deliberately not being re-encrypted (see
- *    docs/encrypted-certificates.md). Re-render from Postgres instead, which
+ *    docs/prds/encrypted-certificates.md). Re-render from Postgres instead, which
  *    needs no gateway round-trip at all.
  *
  * Note the retrieval CID must be the chain's when the credential is anchored;

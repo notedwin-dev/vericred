@@ -10,7 +10,7 @@ export type ShareRejection = "not-found" | "revoked" | "expired";
  * unlike the alternative of putting the raw key in a URL, which cannot be
  * revoked once sent and leaks into browser history. This deviates from the
  * proposal's "the graduate is issued the key to unwrap the certificate"; see
- * docs/encrypted-certificates.md (D3) for why the deviation is the stronger
+ * docs/prds/encrypted-certificates.md (D3) for why the deviation is the stronger
  * design and why the write-up should say so rather than claim otherwise.
  */
 export async function resolveShareToken(token: string) {

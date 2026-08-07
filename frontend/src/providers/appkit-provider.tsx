@@ -58,7 +58,7 @@ if (projectId) {
  * Both are reached exclusively through `next/dynamic`, and both must stay that
  * way. Side-effect-on-import is also why this is *not* in the root layout: any
  * route inheriting a layout that imports it pays to compile the whole AppKit +
- * Lit graph, even a static marketing page. See docs/dev-performance.md.
+ * Lit graph, even a static marketing page. See docs/prds/dev-performance.md.
  *
  * The exported component is a no-op kept only so a consumer can express "AppKit
  * is initialised below here" in JSX. Importing the module is the part that

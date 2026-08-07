@@ -180,7 +180,7 @@ model Certificate {
   /// Grade / classification awarded. Rendered into the ENCRYPTED certificate
   /// document only — never returned by the public verify API and never drawn
   /// on the public PNG preview. This is the privacy split made real; see
-  /// docs/encrypted-certificates.md.
+  /// docs/prds/encrypted-certificates.md.
   grade            String?
 
   shares           CertificateShare[]
@@ -192,7 +192,7 @@ model Certificate {
 /// A revocable grant letting someone without an account open one certificate's
 /// decrypted document. Deliberately a database grant rather than handing over
 /// the content key: no key material leaves the server, so revoking the share
-/// actually revokes access. See docs/encrypted-certificates.md (D3).
+/// actually revokes access. See docs/prds/encrypted-certificates.md (D3).
 model CertificateShare {
   id            String      @id @default(cuid())
   certificateId String

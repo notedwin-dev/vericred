@@ -437,7 +437,7 @@ The shortest path to seeing the system work end-to-end.
 | Application tests fail on connection | `.env.test` is missing, or its `DATABASE_URL` role lacks `CREATEDB`. | Create `.env.test` per 6.4. The test database itself is created automatically (5.1); if creation is refused, grant `CREATEDB` to the role. |
 | Signed in, but redirected to `/onboarding` repeatedly | An OAuth account has no username or linked wallet. | Complete the onboarding form. Both are mandatory for `USER` accounts. |
 | Wallet connects, then immediately signs you out | Historically caused by AppKit's `signOutOnAccountChange` defaults. | Already handled — both flags are set to `false`. If it recurs, check `lib/siwe-config.ts` has not been reverted. |
-| Dev server very slow to compile a route | Expected on first compile in development; `<Link>` does not prefetch in dev. | See [`dev-performance.md`](./dev-performance.md). Adding a Windows Defender exclusion for the repository is worth roughly 11%. |
+| Dev server very slow to compile a route | Expected on first compile in development; `<Link>` does not prefetch in dev. | See [`dev-performance.md`](./prds/dev-performance.md). Adding a Windows Defender exclusion for the repository is worth roughly 11%. |
 
 ---
 

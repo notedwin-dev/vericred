@@ -102,7 +102,7 @@ function toAuthorizedUser(user: {
  * Returns null for anything that shouldn't hint at *why* it failed (unknown
  * account, wrong password), but throws EmailNotVerifiedError for an account
  * that exists and authenticated correctly yet has never proven ownership of
- * its email address (docs/institution-registration-prd.md Decision 5) — the
+ * its email address (docs/prds/institution-registration-prd.md Decision 5) — the
  * user needs to be told to go check their inbox, and by that point the
  * password has already been proven, so it leaks nothing.
  */
@@ -134,7 +134,7 @@ interface InstitutionCredentials {
 
 /**
  * Institution sign-in: password AND a signature from the exact wallet
- * registered as `Issuer.walletAddress` (docs/institution-registration-prd.md
+ * registered as `Issuer.walletAddress` (docs/prds/institution-registration-prd.md
  * Decision 4). Not either/or — an institution that loses control of its wallet
  * loses the ability to sign in, which is the intended property, since that
  * wallet is its on-chain issuing identity.

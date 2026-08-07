@@ -6,7 +6,7 @@ export type WalletConflict = { type: "user" | "issuer"; ownerId: string } | null
  * A physical wallet address must never be ambiguously "whose wallet is
  * this" — checks both the personal-login (`User.walletAddress`) and
  * institution-identity (`Issuer.walletAddress`) tables. See
- * docs/institution-registration-prd.md Decision 10.
+ * docs/prds/institution-registration-prd.md Decision 10.
  */
 export async function findWalletConflict(normalizedAddress: string): Promise<WalletConflict> {
   const [user, issuer] = await Promise.all([

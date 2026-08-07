@@ -12,7 +12,7 @@ import { IPFS_GATEWAY } from "@/lib/config";
  * authoritative artifact and is AES-GCM encrypted, so there is nothing a
  * browser could render, and serving it would hand a stranger ciphertext. The
  * image here is a reduced public representation — notably it carries no award
- * grade. See docs/encrypted-certificates.md.
+ * grade. See docs/prds/encrypted-certificates.md.
  *
  * An image rather than the previous <iframe> of a PDF also fixes two things
  * that were never really working: mobile browsers that force a download

@@ -17,7 +17,7 @@ import "@/providers/appkit-provider";
  * Wallet card for /dashboard/settings. Default-exported so the settings page
  * can pull it in with next/dynamic — it is that page's only route to
  * @reown/appkit, and importing it eagerly would put the whole AppKit + Lit
- * graph into the route's compilation unit. See docs/dev-performance.md.
+ * graph into the route's compilation unit. See docs/prds/dev-performance.md.
  */
 export default function AppKitWalletSection({
   linkedWallet,

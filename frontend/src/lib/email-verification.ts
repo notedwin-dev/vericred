@@ -10,7 +10,7 @@ export const VERIFICATION_RESEND_COOLDOWN_MS = 60 * 1000; // 1 minute
  * `email`. Any outstanding token for the same user is discarded first, so a
  * resend always invalidates the previous link.
  *
- * Used by both registration paths (docs/institution-registration-prd.md
+ * Used by both registration paths (docs/prds/institution-registration-prd.md
  * Decision 5 — email verification blocks login) and by the resend endpoint.
  * Throws if the email fails to send; callers decide whether that's fatal
  * (it isn't during registration — the account already exists and the user

@@ -66,7 +66,7 @@ export function decrypt(payload: string): string {
 // IPFS as an opaque file rather than stored in a TEXT column. It therefore does
 // not need to survive as a string, so there is no hex or base64 and no size
 // penalty. The content key is per-certificate and random; ENCRYPTION_KEY only
-// ever wraps it, via `encrypt` above. See docs/encrypted-certificates.md.
+// ever wraps it, via `encrypt` above. See docs/prds/encrypted-certificates.md.
 
 /** A fresh random content key. One per certificate — never reused. */
 export function generateContentKey(): Buffer {

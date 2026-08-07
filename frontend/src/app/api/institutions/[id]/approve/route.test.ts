@@ -59,7 +59,7 @@ describe("POST /api/institutions/[id]/approve", () => {
     // ADMIN_PRIVATE_KEY/ENCRYPTION_KEY are configured (see root .env) --
     // exercising the real operator-wallet-provisioning + on-chain-call path
     // up to a genuine network failure, which must never partially apply the
-    // approval (docs/institution-registration-prd.md Decision 7:
+    // approval (docs/prds/institution-registration-prd.md Decision 7:
     // all-or-nothing).
     const admin = await createUser({ role: "ADMIN" });
     mockAuthSession(auth, buildSession({ id: admin.id, email: admin.email, role: "ADMIN" }));

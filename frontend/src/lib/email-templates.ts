@@ -42,7 +42,7 @@ const BENEFITS =
 
 /**
  * The email an institution receives once an admin approves its registration
- * and its wallet is authorised on-chain (docs/institution-registration-prd.md
+ * and its wallet is authorised on-chain (docs/prds/institution-registration-prd.md
  * Decision 6). Sent only after the on-chain calls succeed (Decision 7) — an
  * institution is never told it's ready before it actually is.
  */

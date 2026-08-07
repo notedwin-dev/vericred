@@ -23,7 +23,7 @@ function getSafeCallbackUrl(value: string | null): string {
 
 /**
  * Institution sign-in requires password AND wallet signature together
- * (docs/institution-registration-prd.md Decision 4), so it gets its own form
+ * (docs/prds/institution-registration-prd.md Decision 4), so it gets its own form
  * rather than another button on /login.
  */
 export default function InstitutionLoginPage() {

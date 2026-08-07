@@ -12,7 +12,7 @@ type RouteParams = { params: Promise<{ id: string }> };
 /**
  * POST /api/institutions/[id]/approve
  *
- * Admin-only. Fully synchronous, all-or-nothing (docs/
+ * Admin-only. Fully synchronous, all-or-nothing (docs/prds/
  * institution-registration-prd.md Decision 7): provisions an operator
  * wallet, authorises BOTH the institution's own registered wallet and the
  * new operator wallet on-chain, and only on success flips

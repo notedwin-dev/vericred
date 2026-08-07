@@ -19,7 +19,7 @@ import { LinkedWalletInfo } from "@/components/dashboard/linked-wallet-info";
 /**
  * Loaded lazily on purpose: this page's only route to @reown/appkit. Eager
  * import put the whole AppKit + Lit graph in this route's compilation unit.
- * See docs/dev-performance.md.
+ * See docs/prds/dev-performance.md.
  */
 const AppKitWalletSection = dynamic(
   () => import("@/components/dashboard/appkit-wallet-section"),

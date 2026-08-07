@@ -10,7 +10,7 @@ import { parseContractError } from "@/lib/errors";
  * PATCH /api/issuer/wallet
  *
  * Lets an approved institution change its own on-chain identity wallet
- * (docs/institution-registration-prd.md §6.9, Decision 11). All-or-nothing:
+ * (docs/prds/institution-registration-prd.md 6.9, Decision 11). All-or-nothing:
  * the new address must pass signature proof, then authoriseInstitution(new)
  * + removeInstitution(old) both succeed before Issuer.walletAddress updates
  * in the DB -- never leaves an abandoned old wallet still authorised.

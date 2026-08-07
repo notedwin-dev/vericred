@@ -71,7 +71,7 @@ Note: email/password signup does **not** currently generate a custody wallet —
 
 ### Registration & Sign-in Gates
 
-Implemented per `docs/institution-registration-prd.md`. All authorization rules live in **`lib/auth-credentials.ts`**, which is deliberately framework-free (no `next-auth` import) so it can be tested directly; `lib/auth.ts` only adapts its `AuthorizationError`s into Auth.js's `CredentialsSignin` so the `code` reaches the sign-in URL.
+Implemented per `docs/prds/institution-registration-prd.md`. All authorization rules live in **`lib/auth-credentials.ts`**, which is deliberately framework-free (no `next-auth` import) so it can be tested directly; `lib/auth.ts` only adapts its `AuthorizationError`s into Auth.js's `CredentialsSignin` so the `code` reaches the sign-in URL.
 
 - **`/register` is a chooser only** (no fields) → `/register/user` or `/register/institution`. The old catch-all `POST /api/auth/register` has been **deleted** — it created accounts with no username, no wallet and no email verification, bypassing every gate below.
 - **Username + a signature-verified wallet are mandatory on every path.** The two forms collect them directly; OAuth accounts (which have no form step in their callback) are redirected to **`/onboarding`** by the `(authenticated)` layout via `needsOnboarding()` in `lib/onboarding.ts`. ISSUER/ADMIN accounts are exempt — an institution's wallet lives on `Issuer.walletAddress`, not `User.walletAddress`, so requiring one would trap them in an unsatisfiable gate.
@@ -105,7 +105,7 @@ The primary navigation model is a pure function in **`lib/navigation.ts`** (`rol
 
 - Issuers never supply a CID — `POST /api/certificates` (single) and `POST /api/certificates/batch` (CSV) both generate the certificate PDF server-side (`lib/certificate-pdf.tsx` + `lib/generate-certificate.tsx`, embedding a QR code to `/verify/[credentialId]`) and pin it to IPFS via `lib/ipfs.ts` before the DB row is created — the returned `cid` is always real, or a clearly-marked mock if `PINATA_API_KEY`/`PINATA_SECRET_KEY` aren't set. All three issuance paths refuse a mock CID in production, as `/api/user/avatar` already did
 
-### Encrypted certificate artifacts (`docs/encrypted-certificates.md`)
+### Encrypted certificate artifacts (`docs/prds/encrypted-certificates.md`)
 
 **What is pinned to IPFS is AES-256-GCM ciphertext, not a document.** `generateCertificate` renders the PDF, encrypts it under a fresh per-certificate content key, and pins the result as `<credentialId>.vcenc`. Anyone pulling the artifact off a public gateway gets an opaque blob. This is what the Part 1 proposal promised in five places and the code did not do.
 
@@ -159,7 +159,7 @@ Both are mounted per-route instead:
 
 `loading.tsx` does **not** cover the gap between the click and the URL changing — the fallback ships *inside* the RSC payload the router is still waiting for, so until that payload starts streaming the old page sits there looking unclicked (in dev, for the destination's entire first compile; `<Link>` doesn't prefetch in development). **`components/ui/link-button.tsx` covers that gap** — `LinkButton` is a `Button` + `Link` whose label swaps for a spinner via `useLinkStatus()`, which flips on click, before the URL commits. Use `<LinkButton href=…>` for any button that navigates rather than `<Button render={<Link/>} nativeButton={false}>`.
 
-Full analysis, benchmark harness and before/after numbers: `docs/dev-performance.md`.
+Full analysis, benchmark harness and before/after numbers: `docs/prds/dev-performance.md`.
 
 ### Contract Config Pipeline
 

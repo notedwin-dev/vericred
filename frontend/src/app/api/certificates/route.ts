@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
     body ?? {};
 
   // Goes on the encrypted artifact only — never on the public preview or in
-  // the public verify response. See docs/encrypted-certificates.md.
+  // the public verify response. See docs/prds/encrypted-certificates.md.
   const trimmedGrade = typeof grade === "string" && grade.trim() ? grade.trim().slice(0, 64) : undefined;
 
   if (!recipientName || typeof recipientName !== "string" || !recipientName.trim()) {

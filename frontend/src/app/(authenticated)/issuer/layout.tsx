@@ -6,7 +6,7 @@ import { Web3Provider } from "@/providers/web3-provider";
  * The issue-certificate dialog signs issueCredential through useContract,
  * which reads Web3Provider's context. Scoped to /issuer rather than the shared
  * (authenticated) layout so /dashboard doesn't compile ethers — see
- * docs/dev-performance.md.
+ * docs/prds/dev-performance.md.
  */
 export default async function IssuerLayout({
   children,

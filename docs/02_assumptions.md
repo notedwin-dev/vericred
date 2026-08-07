@@ -169,7 +169,7 @@ The column is populated at issuance, but `checkArtifactIntegrity` uses it only a
 
 Separately, and more importantly: **reproducing Pinata's CIDv1 requires matching UnixFS parameters Pinata does not document**, and neither development nor CI can discover them, because `lib/ipfs.ts` takes the mock branch without credentials. `computeCidV1` therefore returns `null` rather than throwing, and a divergence is logged and persisted rather than treated as fatal. **The `method: "cid"` verification path is not exercised by CI and can only be validated against a real Pinata pin.** The deterministic `contentHash` path carries the load in the interim.
 
-No hard-failure mode is implemented. A configuration flag of that kind is proposed in [`encrypted-certificates.md`](./encrypted-certificates.md) and remains future work.
+No hard-failure mode is implemented. A configuration flag of that kind is proposed in [`encrypted-certificates.md`](./prds/encrypted-certificates.md) and remains future work.
 
 ### 7.4 Institution approval is atomic in the database only
 

@@ -76,7 +76,7 @@ export interface IssueCertificateInput {
   /**
    * Award classification. Rendered onto the encrypted certificate artifact
    * only — never returned by the public verify API and never drawn on the
-   * public PNG preview. See docs/encrypted-certificates.md.
+   * public PNG preview. See docs/prds/encrypted-certificates.md.
    */
   grade?: string;
 }

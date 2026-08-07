@@ -8,7 +8,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  * POST /api/auth/verify-email/resend
  *
  * Unauthenticated by necessity: login is exactly what an unverified account
- * can't do (docs/institution-registration-prd.md Decision 5), so without this
+ * can't do (docs/prds/institution-registration-prd.md Decision 5), so without this
  * a lost verification email locks the account out permanently.
  *
  * Always answers 200 for any well-formed address — whether the account

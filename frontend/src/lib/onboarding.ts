@@ -6,7 +6,7 @@ import type { Role } from "@/types";
  * The direct registration forms collect a username and a signature-verified
  * wallet up front, but OAuth has no form step during its redirect callback —
  * Auth.js's PrismaAdapter just creates the account. Those accounts finish at
- * /onboarding instead (docs/institution-registration-prd.md Decision 9).
+ * /onboarding instead (docs/prds/institution-registration-prd.md Decision 9).
  *
  * Institution (ISSUER) and platform (ADMIN) accounts are exempt: an
  * institution's wallet is its on-chain identity on the `Issuer` record, not a

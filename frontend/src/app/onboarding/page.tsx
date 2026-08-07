@@ -7,7 +7,7 @@ import { OnboardingForm } from "./onboarding-form";
 
 /**
  * Finishes signup for accounts created by an OAuth callback, which never saw
- * a registration form (docs/institution-registration-prd.md Decision 9).
+ * a registration form (docs/prds/institution-registration-prd.md Decision 9).
  *
  * Lives outside the `(authenticated)` route group on purpose: that layout
  * redirects *here* when onboarding is incomplete, so being inside it would
