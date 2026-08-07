@@ -20,7 +20,7 @@ Total time from clean checkout to running application: roughly **10–15 minutes
 
 ---
 
-## 1. Prerequisites
+## 1.0 Prerequisites
 
 | Requirement | Minimum | Check with | Notes |
 |---|---|---|---|
@@ -35,7 +35,7 @@ Total time from clean checkout to running application: roughly **10–15 minutes
 
 ---
 
-## 2. Clone and install
+## 2.0 Clone and install
 
 Two separate dependency trees exist and **both** must be installed. The root tree carries the Hardhat toolchain; `frontend/` carries the application.
 
@@ -56,7 +56,7 @@ A common first mistake is installing only at the root and then finding that `npm
 
 ---
 
-## 3. Compile and test the contract
+## 3.0 Compile and test the contract
 
 Confirm the Solidity toolchain works before going further.
 
@@ -75,7 +75,7 @@ Compilation writes to `artifacts/` and `cache/`, both git-ignored. Successful co
 
 ---
 
-## 4. Start the blockchain and deploy
+## 4.0 Start the blockchain and deploy
 
 ### 4.1 Start the node
 
@@ -124,7 +124,7 @@ This populates the on-chain registry so `/verify` has something to find before y
 
 ---
 
-## 5. Provision the database
+## 5.0 Provision the database
 
 ### 5.1 Create the database
 
@@ -146,7 +146,7 @@ createdb vericred_test
 
 ### 5.2 Configure the connection string
 
-The migration step needs `DATABASE_URL` before it can run, so configure the environment first — see §6 — then return here.
+The migration step needs `DATABASE_URL` before it can run, so configure the environment first — see 6.0 — then return here.
 
 ### 5.3 Apply migrations
 
@@ -177,11 +177,11 @@ This creates the two privileged accounts you need in order to see the issuer and
 
 Both are e-mail/password accounts with **no login wallet** — deliberately. The script matches strictly on its own two e-mail addresses and is idempotent, so re-running it updates the same two rows rather than creating duplicates or appropriating an account you created by signing in.
 
-If `ENCRYPTION_KEY` is set (see §6), the seed also provisions and funds the issuer's operator wallet and authorises it on-chain. If it is not set, that step is skipped with a warning and deferred anchoring will have no signer.
+If `ENCRYPTION_KEY` is set (see 6.0), the seed also provisions and funds the issuer's operator wallet and authorises it on-chain. If it is not set, that step is skipped with a warning and deferred anchoring will have no signer.
 
 ---
 
-## 6. Environment configuration
+## 6.0 Environment configuration
 
 Create `frontend/.env.local`. Start from the template:
 
@@ -280,7 +280,7 @@ NEXTAUTH_URL=http://localhost:3000
 
 ---
 
-## 7. Run the application
+## 7.0 Run the application
 
 ```bash
 cd frontend
@@ -304,7 +304,7 @@ Use `dev:fresh` on a first run or after wiping chain state. The two differ becau
 
 ---
 
-## 8. Configure MetaMask
+## 8.0 Configure MetaMask
 
 Only needed to sign transactions interactively. Public verification works without any wallet.
 
@@ -332,7 +332,7 @@ To sign issuance as the seeded issuer, sign in as `issuer@apu.edu.my` and link A
 
 ---
 
-## 9. Verify the installation
+## 9.0 Verify the installation
 
 Work through these in order. Each confirms one layer.
 
@@ -351,7 +351,7 @@ Work through these in order. Each confirms one layer.
 
 ---
 
-## 10. First run: issue and verify a credential
+## 10.0 First run: issue and verify a credential
 
 The shortest path to seeing the system work end-to-end.
 
@@ -364,11 +364,11 @@ The shortest path to seeing the system work end-to-end.
 5. Copy the credential ID (format `VC-2026-XXXXXXXX`).
 6. Open a **private browsing window** — no account, no wallet — and visit `/verify/<credentialId>`. You should see the verification result with issuer, date, CID and transaction hash.
 
-> **Note on step 6 for revocation.** If you revoke the certificate and re-verify, the page will show "Revoked". Be aware that this verdict currently comes from the off-chain index only — the on-chain `revokeCredential` transaction is **not yet wired into the application**. See [`assumptions.md`](./assumptions.md) §7.1.
+> **Note on step 6 for revocation.** If you revoke the certificate and re-verify, the page will show "Revoked". Be aware that this verdict currently comes from the off-chain index only — the on-chain `revokeCredential` transaction is **not yet wired into the application**. See [`assumptions.md`](./assumptions.md) 7.1.
 
 ---
 
-## 11. Troubleshooting
+## 11.0 Troubleshooting
 
 | Symptom | Cause | Fix |
 |---|---|---|
@@ -383,14 +383,14 @@ The shortest path to seeing the system work end-to-end.
 | Certificate download returns 502 in local development | The mock CID resolves to nothing on any gateway. | Expected without real Pinata credentials. The route fails honestly rather than falling back to a re-render, which would mask genuine retrieval failures. |
 | `P1001: Can't reach database server` | PostgreSQL is not running, or `DATABASE_URL` is wrong. | Start PostgreSQL; check host, port, user, password and database name. |
 | `prisma migrate dev` reports drift | The database was modified outside Prisma. | `npx prisma migrate reset` — **destroys all data** — then re-seed. |
-| Application tests fail on connection | `vericred_test` does not exist or `.env.test` is missing. | `createdb vericred_test` and create `.env.test` per §6.4. |
+| Application tests fail on connection | `vericred_test` does not exist or `.env.test` is missing. | `createdb vericred_test` and create `.env.test` per 6.4. |
 | Signed in, but redirected to `/onboarding` repeatedly | An OAuth account has no username or linked wallet. | Complete the onboarding form. Both are mandatory for `USER` accounts. |
 | Wallet connects, then immediately signs you out | Historically caused by AppKit's `signOutOnAccountChange` defaults. | Already handled — both flags are set to `false`. If it recurs, check `lib/siwe-config.ts` has not been reverted. |
 | Dev server very slow to compile a route | Expected on first compile in development; `<Link>` does not prefetch in dev. | See [`dev-performance.md`](./dev-performance.md). Adding a Windows Defender exclusion for the repository is worth roughly 11%. |
 
 ---
 
-## 12. Resetting
+## 12.0 Resetting
 
 ### Reset the chain only
 
@@ -420,7 +420,7 @@ npm run dev:fresh
 
 ---
 
-## 13. Command reference
+## 13.0 Command reference
 
 ```bash
 # ── Root (Hardhat) ────────────────────────────────────────────────
@@ -453,7 +453,7 @@ node scripts/copy-config.js  # Copy contract config manually
 
 ---
 
-## 14. Production notes
+## 14.0 Production notes
 
 The project targets a local demonstration chain, but if deployed further:
 

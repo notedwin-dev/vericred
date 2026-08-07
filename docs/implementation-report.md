@@ -21,23 +21,23 @@ The deliverable comprises a Solidity smart contract (`VeriCred.sol`, 484 lines) 
 
 ## Table of Contents
 
-1. [Introduction](#1-introduction)
-2. [System Architecture](#2-system-architecture)
-3. [System Setup and Execution](#3-system-setup-and-execution)
-4. [Smart Contract Implementation (Solidity)](#4-smart-contract-implementation-solidity)
-5. [Database Layer (PostgreSQL and Prisma)](#5-database-layer-postgresql-and-prisma)
-6. [Front-End Implementation (Next.js and React)](#6-front-end-implementation-nextjs-and-react)
-7. [Feature Implementation Walkthroughs](#7-feature-implementation-walkthroughs)
-8. [Visual Walkthrough of the Running System](#8-visual-walkthrough-of-the-running-system)
-9. [Testing and Validation](#9-testing-and-validation)
-10. [Discussion, Limitations, and Deviations](#10-discussion-limitations-and-deviations)
-11. [Conclusion](#11-conclusion)
-12. [References](#12-references)
-13. [Appendices](#13-appendices)
+1. [Introduction](#10-introduction)
+2. [System Architecture](#20-system-architecture)
+3. [System Setup and Execution](#30-system-setup-and-execution)
+4. [Smart Contract Implementation (Solidity)](#40-smart-contract-implementation-solidity)
+5. [Database Layer (PostgreSQL and Prisma)](#50-database-layer-postgresql-and-prisma)
+6. [Front-End Implementation (Next.js and React)](#60-front-end-implementation-nextjs-and-react)
+7. [Feature Implementation Walkthroughs](#70-feature-implementation-walkthroughs)
+8. [Visual Walkthrough of the Running System](#80-visual-walkthrough-of-the-running-system)
+9. [Testing and Validation](#90-testing-and-validation)
+10. [Discussion, Limitations, and Deviations](#100-discussion-limitations-and-deviations)
+11. [Conclusion](#110-conclusion)
+12. [References](#120-references)
+13. [Appendices](#130-appendices)
 
 ---
 
-## 1. Introduction
+## 1.0 Introduction
 
 ### 1.1 Background and Problem Statement
 
@@ -65,14 +65,14 @@ The assignment brief for Part 2 requires a documented implementation demonstrati
 
 **Table 1.1 — Mapping of assignment requirements to report sections**
 
-| Brief requirement (§2.1) | Implemented as | Evidence |
+| Brief requirement (brief's section 2.1) | Implemented as | Evidence |
 |---|---|---|
-| Build front end using Next.js, React | Next.js 15 App Router application, React 19, TypeScript; 22 pages, 36 route handlers | §6 |
-| Link front end to a local database | PostgreSQL accessed via Prisma ORM; 10 models, 8 migrations | §5 |
-| Deploy the Solidity contract to a Hardhat node | `scripts/deploy.js` targeting `--network localhost` (chain ID 31337) | §3.4, §4.10 |
-| Link front end to the Solidity contract | `lib/contract.ts` (server), `hooks/use-contract.ts` (client), ethers.js v6 | §6.4 |
-| Explain how to set up the system | Complete provisioning procedure | §3 |
-| Explain system features | Feature-by-feature walkthrough with code | §7 |
+| Build front end using Next.js, React | Next.js 15 App Router application, React 19, TypeScript; 22 pages, 36 route handlers | 6.0 |
+| Link front end to a local database | PostgreSQL accessed via Prisma ORM; 10 models, 8 migrations | 5.0 |
+| Deploy the Solidity contract to a Hardhat node | `scripts/deploy.js` targeting `--network localhost` (chain ID 31337) | 3.4, 4.10 |
+| Link front end to the Solidity contract | `lib/contract.ts` (server), `hooks/use-contract.ts` (client), ethers.js v6 | 6.4 |
+| Explain how to set up the system | Complete provisioning procedure | 3.0 |
+| Explain system features | Feature-by-feature walkthrough with code | 7.0 |
 
 ### 1.4 Structure of this Document
 
@@ -80,7 +80,7 @@ Section 2 presents the system architecture and justifies the hybrid storage mode
 
 ---
 
-## 2. System Architecture
+## 2.0 System Architecture
 
 ### 2.1 Architectural Overview
 
@@ -119,7 +119,7 @@ graph TD
 
 **Figure 2.1 — Tiered system architecture.**
 
-Two observations about this topology are material to the design. First, the ledger is written from two distinct positions: from the client, where an institution signs a transaction with its own connected wallet, and from the server, where a platform-custodied *operator wallet* signs on the institution's behalf when no member of that institution is present in the request (§7.2). Second, ledger *reads* require no wallet and no signature whatsoever, which is what permits the public verification endpoint to operate for anonymous visitors.
+Two observations about this topology are material to the design. First, the ledger is written from two distinct positions: from the client, where an institution signs a transaction with its own connected wallet, and from the server, where a platform-custodied *operator wallet* signs on the institution's behalf when no member of that institution is present in the request (7.2). Second, ledger *reads* require no wallet and no signature whatsoever, which is what permits the public verification endpoint to operate for anonymous visitors.
 
 ### 2.2 The Hybrid Storage Model
 
@@ -208,9 +208,9 @@ vericred/
 
 ---
 
-## 3. System Setup and Execution
+## 3.0 System Setup and Execution
 
-This section constitutes the setup documentation required by §2.3 of the assignment brief. The procedure assumes a clean checkout with `node_modules` removed.
+This section constitutes the setup documentation required by 2.3 of the assignment brief. The procedure assumes a clean checkout with `node_modules` removed.
 
 ### 3.1 Prerequisites
 
@@ -220,7 +220,7 @@ This section constitutes the setup documentation required by §2.3 of the assign
 | npm | 9 | Dependency management |
 | PostgreSQL | 14 | Off-chain relational index |
 | MetaMask (or compatible wallet) | current | Signing on-chain transactions |
-| Visual Studio Code | current | Development environment (per brief §2.2) |
+| Visual Studio Code | current | Development environment (per brief 2.2) |
 
 ### 3.2 Dependency Installation
 
@@ -349,7 +349,7 @@ npx prisma db seed         # creates the demonstration Admin and Issuer accounts
 
 ### 3.7 Environment Configuration
 
-The application is configured through `frontend/.env.local`. Variables marked *auto* are written by the pipeline of §3.5 and need not be set by hand.
+The application is configured through `frontend/.env.local`. Variables marked *auto* are written by the pipeline of 3.5 and need not be set by hand.
 
 **Table 3.1 — Environment variables**
 
@@ -361,7 +361,7 @@ The application is configured through `frontend/.env.local`. Variables marked *a
 | `NEXT_PUBLIC_BLOCK_EXPLORER_URL` | no | Explorer base URL; omitted locally, as no explorer exists for chain 31337 |
 | `DATABASE_URL` | yes | PostgreSQL connection string |
 | `NEXTAUTH_SECRET`, `NEXTAUTH_URL` | yes | Auth.js session signing and base URL |
-| `ENCRYPTION_KEY` | yes | 32 bytes, hex-encoded. Wraps per-certificate content keys and operator wallet private keys at rest (§7.1) |
+| `ENCRYPTION_KEY` | yes | 32 bytes, hex-encoded. Wraps per-certificate content keys and operator wallet private keys at rest (7.1) |
 | `ADMIN_PRIVATE_KEY` | no | Enables server-side signing of `authoriseInstitution` / `removeInstitution` |
 | `PINATA_API_KEY`, `PINATA_SECRET_KEY` | no | IPFS pinning. Without them a clearly marked mock CID is produced, which the system refuses to use in production |
 | `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | no | WalletConnect Cloud project identifier |
@@ -409,7 +409,7 @@ These are Hardhat's publicly documented development keys. They are safe only on 
 
 ### 3.10 Demonstration Accounts
 
-`npx prisma db seed` provisions the two privileged accounts required to demonstrate the issuer and administrator interfaces. No self-service route to either role exists in the application, by design (§10.2).
+`npx prisma db seed` provisions the two privileged accounts required to demonstrate the issuer and administrator interfaces. No self-service route to either role exists in the application, by design (10.2).
 
 | Role | E-mail | Password |
 |---|---|---|
@@ -427,7 +427,7 @@ cd frontend && npm run test # 214 application tests (requires a local PostgreSQL
 
 ---
 
-## 4. Smart Contract Implementation (Solidity)
+## 4.0 Smart Contract Implementation (Solidity)
 
 ### 4.1 Design Principles
 
@@ -486,7 +486,7 @@ mapping(bytes32 => uint256)   private _recipientIndex;
 ```
 *Extract 4.2 — `contracts/VeriCred.sol`, lines 54–68.*
 
-Because Solidity mappings are not enumerable, the contract maintains two auxiliary index structures: a global array of identifier hashes and a per-recipient array with a companion position map. The position map is what allows a credential to be removed from a recipient's list in constant time during a transfer (§4.7).
+Because Solidity mappings are not enumerable, the contract maintains two auxiliary index structures: a global array of identifier hashes and a per-recipient array with a companion position map. The position map is what allows a credential to be removed from a recipient's list in constant time during a transfer (4.7).
 
 ### 4.3 Events as the Permanent Audit Trail
 
@@ -789,7 +789,7 @@ function verifyCredential(string calldata credentialId)
 
 The function is declared `view` and is therefore executed locally by the querying node without a transaction, without gas, and without any signature. This is the technical basis for the claim that verification is free and open to the public: an employer requires neither an account with VeriCred nor a cryptocurrency wallet in order to establish that a credential is genuine.
 
-The separation of `exists` from `valid` yields four distinguishable outcomes, which the front end renders as four distinct verification results (§7.3):
+The separation of `exists` from `valid` yields four distinguishable outcomes, which the front end renders as four distinct verification results (7.3):
 
 **Table 4.1 — Verification outcome semantics**
 
@@ -849,7 +849,7 @@ Although `view` functions consume no gas when called externally, nodes nonethele
 
 ---
 
-## 5. Database Layer (PostgreSQL and Prisma)
+## 5.0 Database Layer (PostgreSQL and Prisma)
 
 ### 5.1 Purpose of the Off-Chain Index
 
@@ -956,7 +956,7 @@ enum CertificateStatus {
 
 `CLAIMED` was introduced specifically because collapsing it into `PENDING` conflated two situations that mean different things to a recipient looking at their dashboard: "nobody has claimed this" and "you own this, but it is not yet blockchain-verified".
 
-**Three columns exist solely for cryptographic bookkeeping.** `encKeyEnc` holds the per-certificate content key, itself encrypted under `ENCRYPTION_KEY`; `contentHash` records the SHA-256 digest of the exact bytes pinned; and `computedCid` records the CIDv1 recomputed locally from those same bytes. Their operational role is described in §7.1 and §7.3. A `NULL` in `encKeyEnc` marks a legacy row whose `cid` points at a plaintext document, which is treated as a distinct case throughout rather than as an error.
+**Three columns exist solely for cryptographic bookkeeping.** `encKeyEnc` holds the per-certificate content key, itself encrypted under `ENCRYPTION_KEY`; `contentHash` records the SHA-256 digest of the exact bytes pinned; and `computedCid` records the CIDv1 recomputed locally from those same bytes. Their operational role is described in 7.1 and 7.3. A `NULL` in `encKeyEnc` marks a legacy row whose `cid` points at a plaintext document, which is treated as a distinct case throughout rather than as an error.
 
 ### 5.4 The `Issuer` Model and the Two-Wallet Distinction
 
@@ -983,7 +983,7 @@ model Issuer {
 ```
 *Extract 5.3 — `frontend/prisma/schema.prisma`, lines 93–115 (comments abridged).*
 
-An institution possesses two distinct on-chain identities. `walletAddress` is the organisation's own wallet, which its staff control and with which they sign interactively. `operatorAddress` is a wallet generated by the platform, whose private key is stored encrypted in `operatorKeyEnc` and decrypted only in-process, used to sign transactions attributable to that institution when no member of it is present in the request. Both are authorised on-chain at approval time (§7.7). The design consequence is that a certificate anchored automatically at three o'clock in the morning, when a graduate claims a collection link, still reports the correct institution as its on-chain `issuer` — never the platform administrator.
+An institution possesses two distinct on-chain identities. `walletAddress` is the organisation's own wallet, which its staff control and with which they sign interactively. `operatorAddress` is a wallet generated by the platform, whose private key is stored encrypted in `operatorKeyEnc` and decrypted only in-process, used to sign transactions attributable to that institution when no member of it is present in the request. Both are authorised on-chain at approval time (7.7). The design consequence is that a certificate anchored automatically at three o'clock in the morning, when a graduate claims a collection link, still reports the correct institution as its on-chain `issuer` — never the platform administrator.
 
 ### 5.5 Migration History
 
@@ -1050,7 +1050,7 @@ This documents a genuine defect encountered during development and subsequently 
 
 ---
 
-## 6. Front-End Implementation (Next.js and React)
+## 6.0 Front-End Implementation (Next.js and React)
 
 ### 6.1 Application Structure
 
@@ -1156,7 +1156,7 @@ The gates enforced across these paths are summarised in Table 6.3.
 | Institution accounts refused at `/login` | `InstitutionMustUseWallet` | Prevents the general sign-in page becoming a bypass |
 | Wallet uniqueness checked across both tables | `findWalletConflict()` in `lib/wallet.ts` | A wallet may not simultaneously be a personal and an institutional identity |
 | Institution wallet is not a personal login | `assertWalletIsNotInstitution()` | See Extract 6.1 |
-| Administrator approval is all-or-nothing | `/api/institutions/[id]/approve` | A failed on-chain transaction must change nothing (§7.7) |
+| Administrator approval is all-or-nothing | `/api/institutions/[id]/approve` | A failed on-chain transaction must change nothing (7.7) |
 
 ### 6.4 Linking the Front End to the Contract
 
@@ -1292,7 +1292,7 @@ async function handleSubmit(e: FormEvent) {
 ```
 *Extract 6.5 — `frontend/src/components/issuer/issue-certificate-dialog.tsx`, lines 116–179 (abridged).*
 
-The separation of phases is deliberate. Phase 1 is authoritative and transactional: if it fails, nothing exists. Phase 2 is best-effort: if the wallet is absent, on the wrong network, or the transaction is rejected, the certificate record nonetheless persists in `PENDING` state and can be anchored later by the deferred path (§7.2). The user is never left with a certificate that exists on the ledger but not in the index, which is the ordering that would be unrecoverable.
+The separation of phases is deliberate. Phase 1 is authoritative and transactional: if it fails, nothing exists. Phase 2 is best-effort: if the wallet is absent, on the wrong network, or the transaction is rejected, the certificate record nonetheless persists in `PENDING` state and can be anchored later by the deferred path (7.2). The user is never left with a certificate that exists on the ledger but not in the index, which is the ordering that would be unrecoverable.
 
 The CSV mode applies the same pattern but anchors the whole cohort in a single `issueCredentialBatch` call, requiring one wallet approval regardless of cohort size. Files are parsed in the browser by `lib/csv.ts`, previewed in a table before submission, and capped at 100 rows server-side and 1 MB client-side.
 
@@ -1308,7 +1308,7 @@ Two further measures address perceived rather than actual latency. Every route p
 
 ---
 
-## 7. Feature Implementation Walkthroughs
+## 7.0 Feature Implementation Walkthroughs
 
 This section traces the principal features across all three layers, satisfying the requirement of the brief to explain system features.
 
@@ -1603,7 +1603,7 @@ Two methods are attempted, strongest first. The `cid` method re-derives from the
 
 Critically, no decryption key participates in this operation. Hashing ciphertext is exactly as conclusive as hashing plaintext, and it follows that encrypting certificates costs **tamper-evidence** nothing — a verifier who cannot read the document can still prove it has not been altered.
 
-The stronger phrasing carried in the source comment quoted above, that encryption "costs public verifiability nothing", is worth qualifying rather than repeating. Encryption does cost something real: an anonymous party can no longer *read* what was anchored, only establish that it is unaltered. That loss of public inspectability is precisely why the server-rendered PNG preview of §7.3 exists.
+The stronger phrasing carried in the source comment quoted above, that encryption "costs public verifiability nothing", is worth qualifying rather than repeating. Encryption does cost something real: an anonymous party can no longer *read* what was anchored, only establish that it is unaltered. That loss of public inspectability is precisely why the server-rendered PNG preview of 7.3 exists.
 
 The gateway is treated as an untrusted third party. `fetchFromGateway` imposes both a fifteen-second timeout and a 20 MB size cap, re-checking the actual byte count after download because the `content-length` header is advisory and may be absent or false.
 
@@ -1682,7 +1682,7 @@ stateDiagram-v2
     ACTIVE --> REVOKED: revoked (off-chain only)
 ```
 
-**Figure 7.2 — Certificate lifecycle states.** Two omissions are deliberate. `EXPIRED` is defined in the `CertificateStatus` enumeration and read in several places, but **no code path ever assigns it**: expiry is evaluated on-chain by `verifyCredential` against `block.timestamp`, and derived at render time in the interface. There is no scheduled job and no lazy transition, so the enumeration value is effectively dead storage. And the three transitions into `REVOKED` are marked off-chain only, for the reason given in §7.6.
+**Figure 7.2 — Certificate lifecycle states.** Two omissions are deliberate. `EXPIRED` is defined in the `CertificateStatus` enumeration and read in several places, but **no code path ever assigns it**: expiry is evaluated on-chain by `verifyCredential` against `block.timestamp`, and derived at render time in the interface. There is no scheduled job and no lazy transition, so the enumeration value is effectively dead storage. And the three transitions into `REVOKED` are marked off-chain only, for the reason given in 7.6.
 
 ### 7.6 Revocation
 
@@ -1698,7 +1698,7 @@ Choosing the signer is the whole difficulty, because the contract accepts a revo
 | Institution's own browser wallet | Admin signer — the platform holds no institutional key | Platform admin, exercising override authority |
 | Nothing (`PENDING` / `CLAIMED`) | None; the chain is not touched | — |
 
-The off-chain write happens either way, so a revocation that cannot be anchored still takes effect and the outcome is returned to the caller in an `onChain` field rather than silently discarded. The operation is idempotent: a credential already revoked on-chain reports a skip instead of reverting with `CredentialAlreadyRevoked`. §8.5 demonstrates the whole path with a real transaction. The verification endpoint combines both sources conservatively:
+The off-chain write happens either way, so a revocation that cannot be anchored still takes effect and the outcome is returned to the caller in an `onChain` field rather than silently discarded. The operation is idempotent: a credential already revoked on-chain reports a skip instead of reverting with `CredentialAlreadyRevoked`. 8.5 demonstrates the whole path with a real transaction. The verification endpoint combines both sources conservatively:
 
 ```typescript
 // Cross-check against the off-chain record: a certificate revoked here
@@ -1792,11 +1792,11 @@ The integrity check precedes decryption deliberately: bytes that cannot be vouch
 
 ---
 
-## 8. Visual Walkthrough of the Running System
+## 8.0 Visual Walkthrough of the Running System
 
 The preceding sections describe the implementation through its source. This section evidences it through the running application. Every figure below is a screenshot captured from the deployed system — Hardhat node at chain 31337, contract deployed at `0x5FbDB2315678afecb367f032d93F642f64180aa3`, PostgreSQL migrated and seeded, Next.js served at `localhost:3000` — during a single continuous session on 7 August 2026. No image is a mock-up.
 
-The section is organised by **role**, because VeriCred's interface is role-partitioned: what a page offers depends on who is looking at it. §8.1 covers the public, unauthenticated surface that any verifier sees; §8.2 the recipient; §8.3 the issuing institution; §8.4 the administrator. §8.5 then traces one credential through its entire lifecycle across three roles, ending with a genuine on-chain revocation.
+The section is organised by **role**, because VeriCred's interface is role-partitioned: what a page offers depends on who is looking at it. 8.1 covers the public, unauthenticated surface that any verifier sees; 8.2 the recipient; 8.3 the issuing institution; 8.4 the administrator. 8.5 then traces one credential through its entire lifecycle across three roles, ending with a genuine on-chain revocation.
 
 ### 8.1 Public surface — the verifier (no account, no wallet)
 
@@ -1808,7 +1808,7 @@ The claim that verification requires nothing of the verifier is the project's ce
 **Figure 8.1 — `/` landing page.** Deliberately carries **no navigation bar** (`PRD.md` F1). The two calls to action separate the two audiences the system serves: "Verify a Credential" needs no account, "Get Started" leads to registration. The badge reads "Built on blockchain · Anchored to IPFS", which is the hybrid storage model stated in one line.
 
 ![Landing page how it works](./images/02-landing-how-it-works.jpg)
-**Figure 8.2 — `/` "How it works".** The three steps correspond exactly to the architecture of §2: *Issue* (render, encrypt, pin to IPFS), *Anchor* (write the CID on-chain), *Verify* (anyone, free, no account). The footer is the only chrome on the page.
+**Figure 8.2 — `/` "How it works".** The three steps correspond exactly to the architecture of 2.0: *Issue* (render, encrypt, pin to IPFS), *Anchor* (write the CID on-chain), *Verify* (anyone, free, no account). The footer is the only chrome on the page.
 
 #### 8.1.2 Verification
 
@@ -1822,9 +1822,9 @@ The claim that verification requires nothing of the verifier is the project's ce
 **Figure 8.5 — the same credential, scrolled.** The anchored IPFS CID is displayed in full and is copyable, with links to the gateway and a "Check document integrity" action. Because this seeded credential's CID refers to a placeholder rather than a real pin, the preview panel reports honestly that it cannot render one, rather than showing a broken image.
 
 ![Revoked credential](./images/06-verify-revoked.jpg)
-**Figure 8.6 — `/verify/VC-2026-0003`, a revoked credential.** Amber, with the revocation timestamp and the reason *"Issued in error - duplicate record"* — **read from the blockchain**, not from the database, since this credential has no PostgreSQL row at all. This is the append-only audit trail of §4.6 surfacing to a member of the public.
+**Figure 8.6 — `/verify/VC-2026-0003`, a revoked credential.** Amber, with the revocation timestamp and the reason *"Issued in error - duplicate record"* — **read from the blockchain**, not from the database, since this credential has no PostgreSQL row at all. This is the append-only audit trail of 4.6 surfacing to a member of the public.
 
-> **This figure records a defect found and fixed during capture.** Before the fix this page displayed **"Expired"**. `verifyCredential` returns a single combined `valid` flag and does not report *why* a credential is invalid, so for a credential with no off-chain row `resolveStatus` fell through to a default of `EXPIRED`. A revoked award was therefore presented as merely lapsed — collapsing exactly the distinction design principle 4 (§4.1) exists to preserve. The fix reads the full record via `getCredential` and surfaces `chainRevoked`, `chainRevokedAt` and `chainRevocationReason` through the API. The defect was invisible to code review and to the test suite; it was found only by looking at the running page.
+> **This figure records a defect found and fixed during capture.** Before the fix this page displayed **"Expired"**. `verifyCredential` returns a single combined `valid` flag and does not report *why* a credential is invalid, so for a credential with no off-chain row `resolveStatus` fell through to a default of `EXPIRED`. A revoked award was therefore presented as merely lapsed — collapsing exactly the distinction design principle 4 (4.1) exists to preserve. The fix reads the full record via `getCredential` and surfaces `chainRevoked`, `chainRevokedAt` and `chainRevocationReason` through the API. The defect was invisible to code review and to the test suite; it was found only by looking at the running page.
 
 ![Not found](./images/07-verify-notfound.jpg)
 **Figure 8.7 — `/verify/VC-2026-FAKE9999`, never anchored.** Red, and worded as an absence of record rather than an accusation. Figures 8.4, 8.6 and 8.7 together demonstrate the three-way distinction of Table 4.1: genuine, genuinely-issued-then-withdrawn, and never-issued are three different answers, not two.
@@ -1832,7 +1832,7 @@ The claim that verification requires nothing of the verifier is the project's ce
 #### 8.1.3 Registration and sign-in
 
 ![Registration chooser](./images/08-register-chooser.jpg)
-**Figure 8.8 — `/register`.** A chooser with **no form fields**, per §6.3. The institution panel carries the notice "Registrations are reviewed by an admin before you can issue" — the approval gate stated before any data is entered.
+**Figure 8.8 — `/register`.** A chooser with **no form fields**, per 6.3. The institution panel carries the notice "Registrations are reviewed by an admin before you can issue" — the approval gate stated before any data is entered.
 
 ![Individual registration](./images/11-register-user.jpg)
 **Figure 8.9 — `/register/user`.** Collects display name, username, email and password, and then a **mandatory** wallet via "Connect & sign": "Your credentials are issued to this address, so we ask you to sign a message proving it's yours." A credential must be addressable, so the wallet is not optional.
@@ -1849,18 +1849,18 @@ The claim that verification requires nothing of the verifier is the project's ce
 ### 8.2 Recipient
 
 ![Recipient dashboard](./images/24-recipient-dashboard.jpg)
-**Figure 8.13 — `/dashboard` as a recipient.** "My Credentials", with each credential a card carrying its status badge, issuing institution, issue date, and two actions: *Download certificate* (decrypts server-side for the holder, §7.8) and *Share* (creates a revocable grant). Two details worth noting: the wordmark carries **no role badge**, because an ordinary user needs no reminder of being ordinary (§6.7); and the navbar shows the linked wallet `0x3c44…93bc` even though no wallet is connected in this browser.
+**Figure 8.13 — `/dashboard` as a recipient.** "My Credentials", with each credential a card carrying its status badge, issuing institution, issue date, and two actions: *Download certificate* (decrypts server-side for the holder, 7.8) and *Share* (creates a revocable grant). Two details worth noting: the wordmark carries **no role badge**, because an ordinary user needs no reminder of being ordinary (6.7); and the navbar shows the linked wallet `0x3c44…93bc` even though no wallet is connected in this browser.
 
 ![Settings profile](./images/25-settings-profile.jpg)
 **Figure 8.14 — `/dashboard/settings`, upper.** Profile (avatar uploaded to IPFS, display name, username with its live `/u/<username>` preview), email and password, and connected OAuth accounts each independently linkable.
 
 ![Settings wallet](./images/26-settings-wallet.jpg)
-**Figure 8.15 — `/dashboard/settings`, wallet section.** The heading reads **"Wallet not connected in this browser"** — not "no wallet connected" — followed by "Your linked wallet is shown below." This wording is deliberate and is the linked-versus-connected distinction of §6.2 made visible: `User.walletAddress` is the account's on-chain identity, while a live browser connection is a separate, transient thing. Reading only the latter previously made the interface claim a user had no wallet moments after they had linked one.
+**Figure 8.15 — `/dashboard/settings`, wallet section.** The heading reads **"Wallet not connected in this browser"** — not "no wallet connected" — followed by "Your linked wallet is shown below." This wording is deliberate and is the linked-versus-connected distinction of 6.2 made visible: `User.walletAddress` is the account's on-chain identity, while a live browser connection is a separate, transient thing. Reading only the latter previously made the interface claim a user had no wallet moments after they had linked one.
 
 ### 8.3 Issuer (institution)
 
 ![Issuer overview](./images/12-issuer-overview.jpg)
-**Figure 8.16 — `/issuer`.** The wordmark now carries an **`Issuer`** badge. The role is a badge rather than a navigation tab because a tab labelled "Issuer" would tell an issuer what they already know and point where "Dashboard" already goes (§6.7). Four counters and a recent-issuance table.
+**Figure 8.16 — `/issuer`.** The wordmark now carries an **`Issuer`** badge. The role is a badge rather than a navigation tab because a tab labelled "Issuer" would tell an issuer what they already know and point where "Dashboard" already goes (6.7). Four counters and a recent-issuance table.
 
 ![Templates](./images/13-issuer-templates.jpg)
 **Figure 8.17 — `/issuer/templates`.** Templates are reusable layouts (`CertificateTemplate.layout`, a JSON column) that courses reference, so an institution defines its certificate design once.
@@ -1869,17 +1869,17 @@ The claim that verification requires nothing of the verifier is the project's ce
 **Figure 8.18 — `/issuer/courses`.** Courses are the unit certificates are issued against; each binds an issuer to a template and shows its issuance count.
 
 ![Course detail](./images/15-issuer-course-detail.jpg)
-**Figure 8.19 — `/issuer/courses/[id]`.** Two panels: the certificates issued for this course, each with a Revoke action; and **Collection Links**, the self-service claim mechanism of §7.4, each showing its claim count and link expiry.
+**Figure 8.19 — `/issuer/courses/[id]`.** Two panels: the certificates issued for this course, each with a Revoke action; and **Collection Links**, the self-service claim mechanism of 7.4, each showing its claim count and link expiry.
 
 ![Issue dialog](./images/16-issue-dialog-single.jpg)
 **Figure 8.20 — the issuance dialogue, Single mode.** The description states the two-phase design plainly: "Generates the certificate PDF and pins it to IPFS automatically. If a wallet is connected and a recipient wallet address is known, it's also anchored on-chain immediately — otherwise it stays pending until one is."
 
-Two field annotations carry the design decisions of §3.3:
+Two field annotations carry the design decisions of 3.3:
 
 - *Recipient wallet address (optional)* — "Leave blank if unknown yet — the certificate is anchored automatically once the recipient links or claims with a wallet."
 - *Grade / classification (optional)* — **"Appears on the certificate document, which is encrypted before it is stored. It is not shown on the public verification page."** The privacy split is stated to the issuer at the point of entry.
 
-Note also what the dialogue does **not** contain: any field for a CID. Issuers never supply one (§7.1).
+Note also what the dialogue does **not** contain: any field for a CID. Issuers never supply one (7.1).
 
 ![CSV batch](./images/17-issue-dialog-csv.jpg)
 **Figure 8.21 — the same dialogue, CSV Batch mode.** Columns `name` (required), `email` and `wallet` (optional); rows without a wallet stay pending. Files are parsed in the browser by `lib/csv.ts`, previewed before submission, and capped at 100 rows server-side.
@@ -1888,23 +1888,23 @@ Note also what the dialogue does **not** contain: any field for a CID. Issuers n
 **Figure 8.22 — a completed single issuance.** Recipient "Lim Wei Ling", a recipient wallet, and grade "First Class Honours" — the field that will be rendered onto the encrypted artifact and withheld from every public surface.
 
 ![Issue result](./images/19-issue-result-pending.jpg)
-**Figure 8.23 — immediately after submission.** The toast confirms *"Certificate record created (VC-2026-6QK1YNIANPW). PDF pinned to IPFS."* and the new row appears as **Pending**. It is pending rather than active because no wallet was connected in the browser, so phase 2 was skipped — precisely the behaviour §6.5 describes. The record nonetheless exists, its document is encrypted and pinned, and it can be anchored later.
+**Figure 8.23 — immediately after submission.** The toast confirms *"Certificate record created (VC-2026-6QK1YNIANPW). PDF pinned to IPFS."* and the new row appears as **Pending**. It is pending rather than active because no wallet was connected in the browser, so phase 2 was skipped — precisely the behaviour 6.5 describes. The record nonetheless exists, its document is encrypted and pinned, and it can be anchored later.
 
 ### 8.4 Administrator
 
 ![Admin panel](./images/23-admin-panel.jpg)
 **Figure 8.24 — `/admin`.** The wordmark carries an **`Admin`** badge, and the navigation gains a third entry. Two panels: **Institutions**, listing authorised wallets — `0xf39f…2266` (the deployer, auto-authorised by the constructor) and `0x7099…79c8` (the Academic Registry) — each with a Remove action and an input to authorise a new address; and **All Credentials**, a platform-wide view.
 
-Two observations. First, the institution list is built from an **on-chain event scan**, not from the database, so it reflects the ledger's own state. Second, the credentials table has **no revoke control**, despite the administrator holding override revocation authority on the contract — a gap recorded in §10.6.
+Two observations. First, the institution list is built from an **on-chain event scan**, not from the database, so it reflects the ledger's own state. Second, the credentials table has **no revoke control**, despite the administrator holding override revocation authority on the contract — a gap recorded in 10.6.
 
 ![Admin issuer view](./images/36-admin-issuer-view.jpg)
-**Figure 8.25 — `/issuer` viewed as an administrator.** An administrator's navigation carries Dashboard, Issuer and Settings, and these are three distinct destinations rather than duplicates: "Dashboard" resolves through `roleHome(role)` to `/admin`, while `/issuer` is a genuinely different, cross-institution view. Here it shows all three certificates on the platform with the counts (Active 1, Revoked 2) reflecting the lifecycle demonstration of §8.5.
+**Figure 8.25 — `/issuer` viewed as an administrator.** An administrator's navigation carries Dashboard, Issuer and Settings, and these are three distinct destinations rather than duplicates: "Dashboard" resolves through `roleHome(role)` to `/admin`, while `/issuer` is a genuinely different, cross-institution view. Here it shows all three certificates on the platform with the counts (Active 1, Revoked 2) reflecting the lifecycle demonstration of 8.5.
 
-> **A rough edge, recorded rather than hidden.** This page offers "New Course" and "New Template" to an administrator, but `POST /api/courses` resolves the calling user's own `Issuer` row and returns 403 *"Issuer profile not found"* when there is none — which is the case for the seeded administrator. The server-side check is correct and fails closed; the defect is that the interface offers an action the API will refuse. See §10.6.
+> **A rough edge, recorded rather than hidden.** This page offers "New Course" and "New Template" to an administrator, but `POST /api/courses` resolves the calling user's own `Issuer` row and returns 403 *"Issuer profile not found"* when there is none — which is the case for the seeded administrator. The server-side check is correct and fails closed; the defect is that the interface offers an action the API will refuse. See 10.6.
 
 ### 8.5 One credential, end to end
 
-This subsection follows a single credential through issuance, claiming, anchoring, verification and revocation, across three roles and two real blockchain transactions. It is the demonstration flow of §9.5 actually performed.
+This subsection follows a single credential through issuance, claiming, anchoring, verification and revocation, across three roles and two real blockchain transactions. It is the demonstration flow of 9.5 actually performed.
 
 **Step 1 — the institution signs in with password *and* signature.**
 
@@ -1926,7 +1926,7 @@ A certificate `VC-2026-DGT0SVYVGOQ` was issued to `weiling@example.com` with the
 **Step 4 — claiming anchors it on-chain, with no wallet in the browser.**
 
 ![Claimed and anchored](./images/32-claimed-and-anchored.jpg)
-**Figure 8.29 — the toast reads "Claimed and anchored on-chain."** The status moves straight to **Active**. This is the deferred anchoring path of §7.2: no member of the institution was present, and the recipient's browser signed nothing. The transaction was signed **server-side by the institution's own platform-custodied operator wallet**.
+**Figure 8.29 — the toast reads "Claimed and anchored on-chain."** The status moves straight to **Active**. This is the deferred anchoring path of 7.2: no member of the institution was present, and the recipient's browser signed nothing. The transaction was signed **server-side by the institution's own platform-custodied operator wallet**.
 
 The attribution is the point, and it is verifiable on the ledger:
 
@@ -1944,12 +1944,12 @@ The on-chain `issuer` is the institution's operator wallet — **not the platfor
 **Step 5 — public verification of the anchored credential.**
 
 ![Verify anchored](./images/33-verify-anchored-valid.jpg)
-**Figure 8.30 — `/verify/VC-2026-DGT0SVYVGOQ`.** Now a full record: recipient, course, issuing institution, issuer wallet and issuance time. `GET /api/verify/[credentialId]` reports `cidAgreement: "match"` — the CID anchored on-chain and the one in the off-chain index agree (§7.3).
+**Figure 8.30 — `/verify/VC-2026-DGT0SVYVGOQ`.** Now a full record: recipient, course, issuing institution, issuer wallet and issuance time. `GET /api/verify/[credentialId]` reports `cidAgreement: "match"` — the CID anchored on-chain and the one in the off-chain index agree (7.3).
 
 ![Verify anchored detail](./images/34-verify-anchored-detail.jpg)
-**Figure 8.31 — the certificate preview.** This is the server-rendered PNG of §7.3, regenerated from PostgreSQL: title, recipient, course, issuing institution, date, credential ID and a QR code linking back to this page.
+**Figure 8.31 — the certificate preview.** This is the server-rendered PNG of 7.3, regenerated from PostgreSQL: title, recipient, course, issuing institution, date, credential ID and a QR code linking back to this page.
 
-**The grade "Second Class Upper" does not appear.** It was entered by the issuer, it is stored in PostgreSQL, and it is rendered onto the encrypted artifact pinned to IPFS — but it is absent from the public preview and absent from the public API response. This is the privacy split of §3.3 demonstrated rather than asserted, and it is the single most important figure in this section.
+**The grade "Second Class Upper" does not appear.** It was entered by the issuer, it is stored in PostgreSQL, and it is rendered onto the encrypted artifact pinned to IPFS — but it is absent from the public preview and absent from the public API response. This is the privacy split of 3.3 demonstrated rather than asserted, and it is the single most important figure in this section.
 
 **Step 6 — integrity checking against the real pinned artifact.**
 
@@ -1963,9 +1963,9 @@ The endpoint reports the method used:
   "cid": "bafkreigxeqposzimssnxtih26nw5kewsrusdfhzemzgocgt4kxwdn2t6me", "bytes": 9012 }
 ```
 
-`method: "cid"` is the **stronger** of the two mechanisms in §7.3: the bytes retrieved from the gateway were re-hashed and re-derived the very CID anchored on-chain. Two consequences follow.
+`method: "cid"` is the **stronger** of the two mechanisms in 7.3: the bytes retrieved from the gateway were re-hashed and re-derived the very CID anchored on-chain. Two consequences follow.
 
-First, this closes a limitation the report previously recorded as unresolved. §10.3 states that reproducing Pinata's CIDv1 requires matching UnixFS parameters Pinata does not document, and that the `method: "cid"` path could only be validated against a real pin. It has now been so validated: the stored `computedCid` equals Pinata's `cid` exactly. The `rawLeaves: true` + CIDv1 + base32 + sha256 inference in `lib/cid.ts` is correct in practice. **The path remains unexercised by continuous integration**, which has no Pinata credentials, so the caveat is narrowed rather than removed.
+First, this closes a limitation the report previously recorded as unresolved. 10.3 states that reproducing Pinata's CIDv1 requires matching UnixFS parameters Pinata does not document, and that the `method: "cid"` path could only be validated against a real pin. It has now been so validated: the stored `computedCid` equals Pinata's `cid` exactly. The `rawLeaves: true` + CIDv1 + base32 + sha256 inference in `lib/cid.ts` is correct in practice. **The path remains unexercised by continuous integration**, which has no Pinata credentials, so the caveat is narrowed rather than removed.
 
 Second, note that no decryption key participated. The artifact is ciphertext; hashing ciphertext is exactly as conclusive as hashing plaintext. A verifier who cannot read the certificate has still proved it unaltered.
 
@@ -1990,7 +1990,7 @@ cid still intact : bafkreigxeqposzimssnxtih26nw5kewsrusdfhzemzgocgt4kxwdn2t6me
 
 Three properties are evidenced at once. Revocation is **anchored**, not merely indexed. It is **append-only**: the CID and the issuance record survive untouched, and the original `CredentialIssued` event remains on the chain permanently. And the reason is **published** to the ledger, so an institution cannot quietly withdraw an award.
 
-The signer was selected by reading the anchored issuer back from the chain and matching it to the institution's operator wallet, per §7.6 — the same wallet that anchored the credential also revoked it, keeping the attribution consistent across the credential's whole life.
+The signer was selected by reading the anchored issuer back from the chain and matching it to the institution's operator wallet, per 7.6 — the same wallet that anchored the credential also revoked it, keeping the attribution consistent across the credential's whole life.
 
 ### 8.6 Two behaviours worth showing
 
@@ -1998,7 +1998,7 @@ The signer was selected by reading the anchored issuer back from the chain and m
 **Figure 8.33 — an unrequested signature prompt.** This appeared on visiting `/login` after signing out through the API rather than through the in-app Disconnect control. AppKit persists its wallet connection independently of the session cookie, and because it is wired with `siweConfig` (whose `required` defaults to true), it saw a live connection with no session and demanded a signature the user never asked for. This is exactly the failure mode documented in the project's own guide, reproduced here to show the coupling is real. In-app sign-out routes through `handleSignOut`, which tears down the wallet connection first and avoids it.
 
 ![AppKit connect modal](./images/30-appkit-connect-modal.jpg)
-**Figure 8.34 — the wallet chooser.** WalletConnect (by QR, for mobile wallets) plus every injected extension detected in the browser. This modal is reached only through `next/dynamic`, from exactly three components, for the compile-time reasons in §6.6 — mounting it in the root layout put the whole 51 MB WalletConnect stack into every route's compilation unit, including the static landing page.
+**Figure 8.34 — the wallet chooser.** WalletConnect (by QR, for mobile wallets) plus every injected extension detected in the browser. This modal is reached only through `next/dynamic`, from exactly three components, for the compile-time reasons in 6.6 — mounting it in the root layout put the whole 51 MB WalletConnect stack into every route's compilation unit, including the static landing page.
 
 A structural point is visible in this figure. The institution had already signed in at `/login/institution`, yet the navbar still read "Connect Wallet". Those two facts are consistent: institution sign-in uses `useWalletProof`, which talks to the injected provider directly, whereas the navbar reflects AppKit's own connection state. A wallet can be *proven* without being *connected* in AppKit's sense — the same linked-versus-connected distinction as Figure 8.15, one layer down.
 
@@ -2012,11 +2012,11 @@ A structural point is visible in this figure. The institution had already signed
 | Administrator | Admin panel, institutions, all credentials, cross-institution issuer view | 8.24–8.25 |
 | Cross-cutting | End-to-end lifecycle, integrity check, wallet behaviours | 8.29–8.34 |
 
-Two defects were found by this exercise that code reading had not surfaced: the revoked-shown-as-expired bug (Figure 8.6), now fixed; and the administrator's non-functional "New Course" action (Figure 8.25), recorded in §10.6. This is itself a finding worth stating — a documentation pass that only reads source will not catch what only a running system shows.
+Two defects were found by this exercise that code reading had not surfaced: the revoked-shown-as-expired bug (Figure 8.6), now fixed; and the administrator's non-functional "New Course" action (Figure 8.25), recorded in 10.6. This is itself a finding worth stating — a documentation pass that only reads source will not catch what only a running system shows.
 
 ---
 
-## 9. Testing and Validation
+## 9.0 Testing and Validation
 
 ### 9.1 Strategy
 
@@ -2083,23 +2083,23 @@ The following sequence exercises the complete system and corresponds to the demo
 
 ---
 
-## 10. Discussion, Limitations, and Deviations
+## 10.0 Discussion, Limitations, and Deviations
 
 ### 10.1 Deviation from the Part 1 Proposal: Key Custody
 
-The Part 1 proposal states, in §5.4, that "the graduate is issued… the key to unwrap the certificate" — that is, that the holder holds the decryption key. **The implementation does not do this, and the deviation is stated here rather than glossed over.**
+The Part 1 proposal states, in 5.4, that "the graduate is issued… the key to unwrap the certificate" — that is, that the holder holds the decryption key. **The implementation does not do this, and the deviation is stated here rather than glossed over.**
 
 The literal design — the raw content key placed in a URL fragment and decryption performed in the browser — makes revocation impossible and leaks the key into browser history and into any forwarded link. The implemented design instead stores a per-certificate content key wrapped under `ENCRYPTION_KEY` on the certificate row, and decrypts server-side for entitled readers. It is stronger on the property that actually matters in this application: because the key never leaves the server, sharing a certificate is a database grant rather than a key hand-off, and revoking a share genuinely revokes access. Deviating and explaining is the honest position; claiming the literal design had been implemented would substitute one contradiction for another.
 
 ### 10.2 Absence of Self-Service Privilege Escalation
 
-There is deliberately no route through the application by which a user may become an `ISSUER` or an `ADMIN`. Issuer status is conferred only by administrator approval of a registration request (§7.7), and administrator status only by the seed script. This is a security decision rather than an unimplemented feature: an automatic promotion path is precisely the mechanism by which an attacker who obtains any account obtains the ability to issue credentials.
+There is deliberately no route through the application by which a user may become an `ISSUER` or an `ADMIN`. Issuer status is conferred only by administrator approval of a registration request (7.7), and administrator status only by the seed script. This is a security decision rather than an unimplemented feature: an automatic promotion path is precisely the mechanism by which an attacker who obtains any account obtains the ability to issue credentials.
 
 ### 10.3 Untested Path: Local CID Recomputation Against a Live Pin
 
 Reproducing Pinata's CIDv1 requires matching its UnixFS parameters — chunker, layout, `rawLeaves`, directory wrapping — which Pinata does not document. Neither development nor continuous integration can discover the correct answer, because `lib/ipfs.ts` takes the mock branch without credentials. An assertion on the recomputed value would therefore constitute a production-only tripwire, failing every issuance at the moment real credentials were first configured and being discovered live.
 
-Accordingly, `computeCidV1` returns `null` rather than throwing, and a divergence is logged and persisted rather than treated as fatal. **No hard-failure mode is implemented**; a configuration flag of that kind is proposed in `docs/encrypted-certificates.md` and remains future work. **The consequence, stated plainly: the `method: "cid"` verification path is not exercised by continuous integration, which has no Pinata credentials.** It has, however, since been **validated against a real pin**: the live capture in §8.5 (Figure 8.32) shows `method: "cid"` verifying, with the stored `computedCid` equal to Pinata's `cid` exactly — confirming that the `rawLeaves: true` + CIDv1 + base32 + sha256 inference in `lib/cid.ts` is correct in practice. The caveat is therefore narrowed to CI coverage rather than to whether the mechanism works. The `contentHash` path, deterministic and identical across all environments, remains the default.
+Accordingly, `computeCidV1` returns `null` rather than throwing, and a divergence is logged and persisted rather than treated as fatal. **No hard-failure mode is implemented**; a configuration flag of that kind is proposed in `docs/encrypted-certificates.md` and remains future work. **The consequence, stated plainly: the `method: "cid"` verification path is not exercised by continuous integration, which has no Pinata credentials.** It has, however, since been **validated against a real pin**: the live capture in 8.5 (Figure 8.32) shows `method: "cid"` verifying, with the stored `computedCid` equal to Pinata's `cid` exactly — confirming that the `rawLeaves: true` + CIDv1 + base32 + sha256 inference in `lib/cid.ts` is correct in practice. The caveat is therefore narrowed to CI coverage rather than to whether the mechanism works. The `contentHash` path, deterministic and identical across all environments, remains the default.
 
 A second, sharper limitation sits alongside it. `checkArtifactIntegrity` never compares against the stored `computedCid`: it recomputes a CID from the freshly fetched bytes and compares *that* against `cid`, using the stored column only as a truthiness gate to decide whether to attempt the stronger method at all. The column therefore records what was derived at issuance without functioning as a reference value at verification time.
 
@@ -2115,48 +2115,48 @@ The authoritative encrypted document is drawn by `@react-pdf/renderer` in Helvet
 
 The limitations below are of a different character from those above: each is a place where the architecture assumes behaviour the application does not currently perform. They are enumerated rather than summarised, because an undeclared limitation is worse than a declared one.
 
-**1. On-chain revocation — implemented during this pass.** This was the single largest gap between the design and the delivered system: `revokeCredential` existed on the contract and was covered by the test suite, but no application code called it, so a revoked credential's on-chain `isValid()` still returned `true` and revocation lived only in the mutable index. It is now anchored by `lib/revoke.ts` (§7.6), demonstrated end to end in §8.5 with a real transaction. The residual limitation is narrower: a signer permitted by the contract must be available — the operator wallet where it anchored the credential, otherwise the admin key — and where neither exists the revocation is recorded off-chain and reported as such rather than silently.
+**1. On-chain revocation — implemented during this pass.** This was the single largest gap between the design and the delivered system: `revokeCredential` existed on the contract and was covered by the test suite, but no application code called it, so a revoked credential's on-chain `isValid()` still returned `true` and revocation lived only in the mutable index. It is now anchored by `lib/revoke.ts` (7.6), demonstrated end to end in 8.5 with a real transaction. The residual limitation is narrower: a signer permitted by the contract must be available — the operator wallet where it anchored the credential, otherwise the admin key — and where neither exists the revocation is recorded off-chain and reported as such rather than silently.
 
 **2. The `EXPIRED` status is never written.** Defined in the enumeration and read in several places, but assigned by no code path. See Figure 7.2.
 
-**3. Institution approval is not atomic on-chain.** Two independent `authoriseInstitution` transactions with no compensating rollback; a partial failure strands an authorisation that a retry does not clean up. See §7.7.
+**3. Institution approval is not atomic on-chain.** Two independent `authoriseInstitution` transactions with no compensating rollback; a partial failure strands an authorisation that a retry does not clean up. See 7.7.
 
-**4. `computedCid` carries no independent evidential weight.** The integrity check recomputes from fetched bytes and compares against `cid`, using the stored column only as a gate. See §10.3.
+**4. `computedCid` carries no independent evidential weight.** The integrity check recomputes from fetched bytes and compares against `cid`, using the stored column only as a gate. See 10.3.
 
 **5. Operator-wallet decryption failure is not handled as designed.** `getOperatorSigner` is intended to return `null` on any problem so that callers may treat it as "cannot auto-anchor for this issuer". It does so for a missing wallet and for an address mismatch — but where `operatorKeyEnc` is corrupt, `decrypt()` throws, and both call sites in `lib/anchor.ts` invoke the function *outside* their `try` blocks. A tampered column therefore produces a 500 on the collection-link claim route, after the certificate row and the incremented link counter have already been committed.
 
-**6. The document path does silently re-render for legacy rows.** §7.8 states that retrieval failure returns 502 rather than falling back to a re-render. That holds for encrypted rows; rows with no content key are re-rendered from PostgreSQL by design, since their pinned file is a plaintext PDF and there is nothing to decrypt. The `contentHash` comparison is also skipped where that column is null but `encKeyEnc` is set.
+**6. The document path does silently re-render for legacy rows.** 7.8 states that retrieval failure returns 502 rather than falling back to a re-render. That holds for encrypted rows; rows with no content key are re-rendered from PostgreSQL by design, since their pinned file is a plaintext PDF and there is nothing to decrypt. The `contentHash` comparison is also skipped where that column is null but `encKeyEnc` is set.
 
 **7. The administrator has no revocation control, and one action it does offer is a dead end.** `/admin` lists all credentials but offers no Revoke action, despite the administrator holding override authority on the contract (Figure 8.24). Separately, `/issuer` viewed as an administrator offers "New Course" and "New Template", but `POST /api/courses` resolves the calling user's own `Issuer` row and returns 403 *"Issuer profile not found"* when there is none — which is the case for the seeded administrator (Figure 8.25). The server-side check is correct and fails closed; the defect is that the interface offers an action the API will refuse.
 
-**8. A revoked credential displayed as "Expired" (fixed).** `verifyCredential` returns only a combined `valid` flag, so for a credential with no off-chain row `resolveStatus` fell through to a default of `EXPIRED`, presenting a revoked award as merely lapsed. Found by inspecting the running page during the §8 capture, not by code review or the test suite. Fixed by reading the full record via `getCredential` and surfacing `chainRevoked`, `chainRevokedAt` and `chainRevocationReason` through the verify API (Figure 8.6).
+**8. A revoked credential displayed as "Expired" (fixed).** `verifyCredential` returns only a combined `valid` flag, so for a credential with no off-chain row `resolveStatus` fell through to a default of `EXPIRED`, presenting a revoked award as merely lapsed. Found by inspecting the running page during the 8.0 capture, not by code review or the test suite. Fixed by reading the full record via `getCredential` and surfacing `chainRevoked`, `chainRevokedAt` and `chainRevocationReason` through the verify API (Figure 8.6).
 
 ### 10.7 Other Limitations
 
 - **Local deployment only.** The contract is deployed to a Hardhat node at chain 31337. Deployment to a public testnet would require a funded deployer account and a block explorer URL; the code path is otherwise unchanged, as the explorer link is rendered conditionally on `NEXT_PUBLIC_BLOCK_EXPLORER_URL` being set.
 - **`transferCredential` is not yet surfaced.** The contract implements wallet migration and it is covered by thirteen tests, but no front-end control currently invokes it; changing a linked wallet does not presently transfer existing credentials on-chain.
-- **No custody wallet on e-mail signup.** `docs/PRD.md` §F2 anticipated generating a custody wallet for email-and-password users. The `custodyAddress` and `custodyKeyEnc` columns exist but nothing populates them; such users have no wallet until they link one.
+- **No custody wallet on e-mail signup.** `docs/PRD.md` F2 anticipated generating a custody wallet for email-and-password users. The `custodyAddress` and `custodyKeyEnc` columns exist but nothing populates them; such users have no wallet until they link one.
 - **Holder download requires real Pinata credentials.** In local development the mock CID resolves to nothing, so this path returns an honest HTTP 502 rather than silently falling back to a re-render.
 
 ### 10.8 Future Work
 
-In priority order: **adding an administrator revocation control** and fixing the non-functional "New Course" action on the administrator's issuer view (§10.6); making institution approval recoverable on-chain, whether by a batching function on the contract or by a compensating `removeInstitution`; surfacing `transferCredential` in the settings interface so that wallet migration completes end-to-end; moving `getOperatorSigner` inside its callers' `try` blocks; calibrating `computeCidV1` against live pins and adding the hard-failure mode proposed in `docs/encrypted-certificates.md`; deploying to a public testnet with a block explorer configured; and moving `ENCRYPTION_KEY` and `ADMIN_PRIVATE_KEY` into a managed key service rather than environment variables.
+In priority order: **adding an administrator revocation control** and fixing the non-functional "New Course" action on the administrator's issuer view (10.6); making institution approval recoverable on-chain, whether by a batching function on the contract or by a compensating `removeInstitution`; surfacing `transferCredential` in the settings interface so that wallet migration completes end-to-end; moving `getOperatorSigner` inside its callers' `try` blocks; calibrating `computeCidV1` against live pins and adding the hard-failure mode proposed in `docs/encrypted-certificates.md`; deploying to a public testnet with a block explorer configured; and moving `ENCRYPTION_KEY` and `ADMIN_PRIVATE_KEY` into a managed key service rather than environment variables.
 
 ---
 
-## 11. Conclusion
+## 11.0 Conclusion
 
 This report has documented the implementation of VeriCred, a decentralised application for academic credential verification, against the requirements of Part 2 of the CT124-3-3-BCD group assignment.
 
-All four technical requirements of §2.1 of the brief are satisfied and evidenced. A front end is built with Next.js 15 and React 19 (§6). It is linked to a local PostgreSQL database through Prisma, comprising ten models across eight versioned migrations (§5). A Solidity contract is deployed to a local Hardhat node at chain 31337 by an automated script (§3.4, §4.10). And the front end is linked to that contract through ethers.js v6, in both server-side and client-side forms, with the ABI and address propagated automatically from the deployment artefacts (§3.5, §6.4).
+All four technical requirements in the brief's section 2.1 are satisfied and evidenced. A front end is built with Next.js 15 and React 19 (Section 6.0). It is linked to a local PostgreSQL database through Prisma, comprising ten models across eight versioned migrations (Section 5.0). A Solidity contract is deployed to a local Hardhat node at chain 31337 by an automated script (Sections 3.4 and 4.10). And the front end is linked to that contract through ethers.js v6, in both server-side and client-side forms, with the ABI and address propagated automatically from the deployment artefacts (Sections 3.5 and 6.4). Section 8.0 evidences the result as a running system rather than as source.
 
 The central technical contribution is the hybrid storage model and its rigorous application. Only wallet addresses, an IPFS content identifier, and lifecycle metadata reach the ledger; the certificate document is encrypted with AES-256-GCM under a per-certificate key before pinning; personal data remains in a private, mutable relational index. Because an IPFS CID is a hash of the file's own bytes, this arrangement yields tamper-evidence without publishing anything personal — and because integrity checking re-hashes ciphertext, a verifier who cannot read the document can nonetheless prove that it has not been altered. Encryption therefore costs tamper-evidence nothing, which is the property that makes the whole arrangement coherent; what it does cost is public inspectability, which the server-rendered preview restores.
 
-The implementation is validated by 278 automated tests, all passing: 64 against the contract and 214 against the application. Section 10 documents, without minimisation, both the respects in which the delivered system departs from the Part 1 proposal and the places where the architecture presupposes behaviour the application does not yet perform. The largest of those, on-chain revocation, was closed during this pass and is demonstrated end to end in §8.5; the remainder are recorded rather than glossed. Stating those honestly is judged more valuable than a claim of completeness that the code would not support.
+The implementation is validated by 278 automated tests, all passing: 64 against the contract and 214 against the application. Section 10 documents, without minimisation, both the respects in which the delivered system departs from the Part 1 proposal and the places where the architecture presupposes behaviour the application does not yet perform. The largest of those, on-chain revocation, was closed during this pass and is demonstrated end to end in 8.5; the remainder are recorded rather than glossed. Stating those honestly is judged more valuable than a claim of completeness that the code would not support.
 
 ---
 
-## 12. References
+## 12.0 References
 
 Benet, J. (2014) *IPFS — Content Addressed, Versioned, P2P File System*. arXiv:1407.3561. Available at: https://arxiv.org/abs/1407.3561
 
@@ -2182,7 +2182,7 @@ Vercel (2025) *Next.js Documentation — App Router*. Available at: https://next
 
 ---
 
-## 13. Appendices
+## 13.0 Appendices
 
 ### Appendix A — Command Reference
 

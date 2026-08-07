@@ -16,7 +16,7 @@ An assumption here is not a claim of correctness. It is a statement of the form 
 
 ---
 
-## 1. Deployment assumptions
+## 1.0 Deployment assumptions
 
 | # | Assumption | If it does not hold |
 |---|---|---|
@@ -29,7 +29,7 @@ An assumption here is not a claim of correctness. It is a statement of the form 
 
 ---
 
-## 2. Trust model
+## 2.0 Trust model
 
 This is the most important section in this document, because the project's stated motivation is the removal of a centralised trust anchor, and it is important to be precise about how much of one remains.
 
@@ -68,7 +68,7 @@ This is a genuine and deliberate limitation, and it is worth being exact about w
 
 ---
 
-## 3. Actor assumptions
+## 3.0 Actor assumptions
 
 | # | Actor | Assumed behaviour | Enforcement |
 |---|---|---|---|
@@ -80,11 +80,11 @@ This is a genuine and deliberate limitation, and it is worth being exact about w
 
 **A6 — An institution funds its own operator wallet.** The platform never holds a real institution's private key. Provisioning generates an operator wallet and encrypts it; *funding* it with gas is the institution's responsibility, sent from its own connected wallet. In the seed data, Hardhat Account #1's well-known test key stands in for "the institution's own wallet" purely because it is a local development chain.
 
-**A7 — Losing a wallet is expected, not exceptional.** `transferCredential` exists because recipients lose access to wallets. Note the qualification in §7.
+**A7 — Losing a wallet is expected, not exceptional.** `transferCredential` exists because recipients lose access to wallets. Note the qualification in 7.
 
 ---
 
-## 4. Data assumptions
+## 4.0 Data assumptions
 
 **DA1 — Personal data must never reach the ledger.** A public ledger is permanent, world-readable, and irreversible. The contract stores only wallet addresses, an IPFS CID, and lifecycle metadata. This is an absolute constraint, not a preference: it is what makes a right-to-erasure request satisfiable against PostgreSQL without requiring the impossible of the chain.
 
@@ -98,7 +98,7 @@ This is a genuine and deliberate limitation, and it is worth being exact about w
 
 ---
 
-## 5. Cryptographic assumptions
+## 5.0 Cryptographic assumptions
 
 | # | Assumption | Basis |
 |---|---|---|
@@ -109,19 +109,19 @@ This is a genuine and deliberate limitation, and it is worth being exact about w
 | C5 | `ENCRYPTION_KEY` **remains secret and is never lost**. | Not enforceable by code. It wraps every per-certificate content key and every operator wallet private key. Compromise exposes all artifacts; **loss makes every existing artifact permanently undecryptable**. It is backup-critical. |
 | C6 | Per-certificate content keys are **fresh and never reused**, generated from `randomBytes(32)`. | `generateContentKey()`. Reuse under GCM would be catastrophic; the code never reuses. |
 | C7 | Binding `credentialId` as **AAD** prevents artifact substitution across certificates. | An artifact lifted from one certificate and served under another's identifier fails to authenticate rather than decrypting cleanly. |
-| C8 | **SIWE signature verification** establishes control of a private key, and nonce-binding to the session CSRF token prevents cross-session replay. | EIP-4361. See the qualification in §7.5. |
+| C8 | **SIWE signature verification** establishes control of a private key, and nonce-binding to the session CSRF token prevents cross-session replay. | EIP-4361. See the qualification in 7.5. |
 
 **C9 — Zeroing the content key buffer is defence-in-depth, not a guarantee.** `generateCertificate` calls `key.fill(0)` in a `finally` block, but the same function also evaluates `encrypt(key.toString("hex"))`, which materialises an immutable JavaScript string holding the same key material. That copy cannot be zeroed and is reclaimed only by the garbage collector. The zeroing is worth doing; it should not be read as a guarantee that no plaintext key copy remains in memory.
 
 ---
 
-## 6. Infrastructure assumptions
+## 6.0 Infrastructure assumptions
 
 **I1 — Pinata keeps pinned content available indefinitely.** The system assumes a pin persists. If Pinata drops it and no other node has it, the artifact becomes unretrievable: verification degrades to `unavailable / gateway` rather than reporting a false mismatch, and the holder-download path returns HTTP 502. The system fails honestly here rather than silently.
 
 **I2 — Without Pinata credentials, a deterministic mock CID is produced.** This is a development convenience and is derived from the file's own contents, so the "same bytes ⇒ same CID" property that integrity checking depends on holds locally too. **All three issuance paths refuse a mock CID in production**, returning HTTP 503.
 
-**I3 — Pinata's UnixFS parameters are undocumented.** This is why `computeCidV1` is best-effort and must never throw. See §7.3 for what follows from it.
+**I3 — Pinata's UnixFS parameters are undocumented.** This is why `computeCidV1` is best-effort and must never throw. See 7.3 for what follows from it.
 
 **I4 — PostgreSQL is available and consistent.** There is no read replica, no caching layer, and no offline mode. Prisma transactions are assumed to provide the isolation the collection-link claim path relies on.
 
@@ -131,7 +131,7 @@ This is a genuine and deliberate limitation, and it is worth being exact about w
 
 ---
 
-## 7. Assumptions the code does not yet satisfy
+## 7.0 Assumptions the code does not yet satisfy
 
 The following are places where the design assumes behaviour the implementation does not currently provide. They are stated here rather than in a footnote because an undeclared limitation is worse than a declared one.
 
@@ -181,28 +181,28 @@ The nonce is bound to the session's CSRF token and verified server-side, which i
 | Assumption | Status |
 |---|---|
 | Wallet migration transfers credentials on-chain (A7) | `transferCredential` is implemented and covered by 13 contract tests, but **no front-end control invokes it**. Changing a linked wallet does not transfer existing credentials. |
-| E-mail/password signup provisions a custody wallet | `PRD.md` §F2 anticipates this. `User.custodyAddress` and `custodyKeyEnc` exist; **nothing populates them**. Such users have no wallet until they link one. |
+| E-mail/password signup provisions a custody wallet | `PRD.md` F2 anticipates this. `User.custodyAddress` and `custodyKeyEnc` exist; **nothing populates them**. Such users have no wallet until they link one. |
 | Legacy certificates can be integrity-checked | Rows predating encryption have neither reference value. They report `unavailable / legacy`, never `mismatch` — deliberately, since branding every historical certificate as tampered would be worse. They are **not backfilled**: re-encrypting would produce a CID disagreeing with one already anchored immutably. |
 | Holder download works in local development | It does not. The mock CID resolves to nothing, so the path honestly returns 502 rather than falling back to a re-render — a silent fallback would mask the tampering the check exists to catch. |
 | Contract errors are decoded from their selector | `parseContractError` performs **substring matching on the error name** in whatever message ethers surfaces, against a hard-coded table. Functionally adequate, but more brittle than ABI selector decoding. |
 
 ---
 
-## 8. Scope assumptions (explicit non-goals)
+## 8.0 Scope assumptions (explicit non-goals)
 
 The following are assumed **out of scope** and their absence is deliberate:
 
 - **No public testnet or mainnet deployment.** Local Hardhat only.
 - **No self-service route to `ISSUER` or `ADMIN`.** Issuer status comes only from administrator approval; administrator status only from the seed script. This is a security decision: an automatic promotion path is exactly how an attacker who obtains any account obtains the ability to issue credentials.
 - **No encryption of PostgreSQL metadata.** Readable metadata in the institution's own database is by design.
-- **No client-side decryption.** Key custody is server-side, which deviates from the Part 1 proposal's §5.4. The deviation is deliberate: the literal design — key in a URL fragment, decrypted in-browser — makes revocation impossible and leaks the key into browser history and any forwarded link. Because the key never leaves the server, sharing is a revocable database grant.
+- **No client-side decryption.** Key custody is server-side, which deviates from the Part 1 proposal's 5.4. The deviation is deliberate: the literal design — key in a URL fragment, decrypted in-browser — makes revocation impossible and leaks the key into browser history and any forwarded link. Because the key never leaves the server, sharing is a revocable database grant.
 - **No gas abstraction or meta-transactions.** Recipients never pay gas because they never transact; institutions pay their own.
 - **No multi-chain support.** One contract, one chain.
 - **No formal verification or professional audit** of the contract.
 
 ---
 
-## 9. Summary of load-bearing assumptions
+## 9.0 Summary of load-bearing assumptions
 
 If a reader takes away only five things:
 
@@ -210,7 +210,7 @@ If a reader takes away only five things:
 2. **Personal data must never reach the ledger**, which is what makes the whole hybrid-storage design necessary rather than merely clever.
 3. **`ENCRYPTION_KEY` is backup-critical** — losing it permanently destroys access to every certificate artifact.
 4. **Integrity checking needs no key**, because hashing ciphertext is as conclusive as hashing plaintext.
-5. **On-chain revocation now anchors, but only when a permitted signer exists** (§7.1) — the operator wallet where it anchored the credential, otherwise the admin key. Without either, the revocation is recorded off-chain and reported as such.
+5. **On-chain revocation now anchors, but only when a permitted signer exists** (7.1) — the operator wallet where it anchored the credential, otherwise the admin key. Without either, the revocation is recorded off-chain and reported as such.
 
 ---
 

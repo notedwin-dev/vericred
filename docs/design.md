@@ -8,20 +8,20 @@
 
 ## Contents
 
-1. [The problem and the shape of the solution](#1-the-problem-and-the-shape-of-the-solution)
-2. [System architecture](#2-system-architecture)
-3. [The hybrid storage model](#3-the-hybrid-storage-model)
-4. [Smart contract design](#4-smart-contract-design)
-5. [Database design](#5-database-design)
-6. [Application design](#6-application-design)
-7. [Security design](#7-security-design)
-8. [Principal flows](#8-principal-flows)
-9. [Design decisions and trade-offs](#9-design-decisions-and-trade-offs)
-10. [Known divergences between design and implementation](#10-known-divergences-between-design-and-implementation)
+1. [The problem and the shape of the solution](#10-the-problem-and-the-shape-of-the-solution)
+2. [System architecture](#20-system-architecture)
+3. [The hybrid storage model](#30-the-hybrid-storage-model)
+4. [Smart contract design](#40-smart-contract-design)
+5. [Database design](#50-database-design)
+6. [Application design](#60-application-design)
+7. [Security design](#70-security-design)
+8. [Principal flows](#80-principal-flows)
+9. [Design decisions and trade-offs](#90-design-decisions-and-trade-offs)
+10. [Known divergences between design and implementation](#100-known-divergences-between-design-and-implementation)
 
 ---
 
-## 1. The problem and the shape of the solution
+## 1.0 The problem and the shape of the solution
 
 An employer holding a degree certificate can accept it at face value, contact the issuing institution and wait, or pay a proprietary verification intermediary. The first is unsafe, the second does not scale, and the third reintroduces the centralised trust anchor that verification is supposed to remove.
 
@@ -33,7 +33,7 @@ VeriCred's answer is to put **a fingerprint, not a document**, on the ledger —
 
 ---
 
-## 2. System architecture
+## 2.0 System architecture
 
 ### 2.1 Tiers
 
@@ -88,7 +88,7 @@ The rule that keeps this testable is that domain modules are framework-free. `li
 
 ---
 
-## 3. The hybrid storage model
+## 3.0 The hybrid storage model
 
 ### 3.1 The allocation
 
@@ -126,7 +126,7 @@ So a verifier with no key can still prove authenticity. **Encryption costs tampe
 
 ---
 
-## 4. Smart contract design
+## 4.0 Smart contract design
 
 ### 4.1 Governing principles
 
@@ -210,7 +210,7 @@ Enumeration accessors are paginated. Although `view` calls cost no gas externall
 
 ---
 
-## 5. Database design
+## 5.0 Database design
 
 ### 5.1 Entity model
 
@@ -281,7 +281,7 @@ A route must therefore opt *in* to see the key, which is the safe direction — 
 
 ---
 
-## 6. Application design
+## 6.0 Application design
 
 ### 6.1 Routing
 
@@ -358,7 +358,7 @@ Every route also has a `loading.tsx` to establish a Suspense boundary — withou
 
 ---
 
-## 7. Security design
+## 7.0 Security design
 
 ### 7.1 Artifact format
 
@@ -411,7 +411,7 @@ The IPFS gateway is treated as hostile: 15-second timeout, 20 MB cap, and the by
 
 ---
 
-## 8. Principal flows
+## 8.0 Principal flows
 
 ### 8.1 Issuance
 
@@ -491,7 +491,7 @@ stateDiagram-v2
 
 Only the transition out of `ACTIVE` has anything to anchor — a `PENDING` or `CLAIMED` certificate has no on-chain record to append a revocation to, so `lib/revoke.ts` skips the chain entirely for those.
 
-`EXPIRED` is defined in the enum but **never written** — expiry is evaluated on-chain by `verifyCredential` and derived at render time. See §10.
+`EXPIRED` is defined in the enum but **never written** — expiry is evaluated on-chain by `verifyCredential` and derived at render time. See 1.00.
 
 ### 8.6 Sharing
 
@@ -501,13 +501,13 @@ Instead, `CertificateShare` records a token, optional expiry, revocation timesta
 
 ---
 
-## 9. Design decisions and trade-offs
+## 9.0 Design decisions and trade-offs
 
 | Decision | Alternative rejected | Rationale |
 |---|---|---|
 | Anchor a CID, not a document | Store data on-chain | Permanence and world-readability make a ledger the worst home for personal data |
 | Encrypt the artifact **and** add `grade` | Encrypt only | Encrypting a document of already-public fields protects almost nothing |
-| Server-side key custody | Key issued to the holder (proposal §5.4) | The literal design cannot be revoked and leaks the key into history; sharing becomes a revocable grant instead |
+| Server-side key custody | Key issued to the holder (proposal 5.4) | The literal design cannot be revoked and leaks the key into history; sharing becomes a revocable grant instead |
 | PNG preview re-rendered from Postgres | Serve the pinned file | Ciphertext cannot be rendered; also fixes mobile PDF handling and enables `og:image` |
 | `contentHash` load-bearing, `computedCid` best-effort | Require CID recomputation | Pinata's UnixFS parameters are undocumented; a hard assertion would be a production-only tripwire |
 | Legacy rows not backfilled | Re-encrypt everything | A new CID would disagree with one already anchored immutably |
@@ -518,9 +518,9 @@ Instead, `CertificateShare` records a token, optional expiry, revocation timesta
 
 ---
 
-## 10. Known divergences between design and implementation
+## 10.0 Known divergences between design and implementation
 
-Stated here rather than left for a reader to discover. The full treatment is in [`assumptions.md`](./assumptions.md) §7.
+Stated here rather than left for a reader to discover. The full treatment is in [`assumptions.md`](./assumptions.md) 7.
 
 | # | Design intent | Actual behaviour |
 |---|---|---|

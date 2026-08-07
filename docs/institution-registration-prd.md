@@ -4,11 +4,11 @@
 **Team:** Group 14, APU
 **Status:** Design complete, pending implementation
 **Date:** 2026-08-04
-**Supplements:** [`PRD.md`](./PRD.md) §F2 (Authentication), §User Roles
+**Supplements:** [`PRD.md`](./PRD.md) F2 (Authentication), User Roles
 
 ---
 
-## 1. Overview
+## 1.0 Overview
 
 VeriCred's root PRD (`F2: Authentication`) describes WalletConnect/OAuth/email
 sign-in, but the current implementation has no self-service path to become an
@@ -30,7 +30,7 @@ set of wallet-architecture gaps that existed before this design pass:
   meant anyone could register with a stranger's real email and immediately
   see/claim certificates addressed to that person.
 
-## 2. Goals
+## 2.0 Goals
 
 - Self-service registration for both individuals and institutions, gated by
   admin approval for institutions (not silent auto-promotion).
@@ -41,7 +41,7 @@ set of wallet-architecture gaps that existed before this design pass:
   path (email, OAuth, institution) — no path left incomplete indefinitely.
 - Mandatory email verification closing the certificate-claim-by-email gap.
 
-## 3. Non-Goals
+## 3.0 Non-Goals
 
 - Multi-user-per-institution (staff accounts under one Issuer). `Issuer`
   stays 1:1 with `User` (`userId @unique`).
@@ -52,9 +52,9 @@ set of wallet-architecture gaps that existed before this design pass:
 - Enterprise SSO/SAML or Google-Workspace-domain-restricted OAuth for
   institutions — noted as a good future direction, not built here.
 - Redesigning the core on-chain data model (per-credential anchoring with
-  `recipient` on-chain) to a Blockcerts-style Merkle-batch scheme. See §4.
+  `recipient` on-chain) to a Blockcerts-style Merkle-batch scheme. See 4.
 
-## 4. Reference Model Research: Why Not Copy Credly/Blockcerts
+## 4.0 Reference Model Research: Why Not Copy Credly/Blockcerts
 
 Before finalizing the wallet architecture, we compared VeriCred against how
 Credly, Blockcerts, and Accredible actually implement "blockchain-verified"
@@ -75,7 +75,7 @@ by thousands of unrelated credentials, meaningless to a lay verifier.
 **Why VeriCred diverges:** `VeriCred.sol` anchors *each* credential
 individually and stores the **recipient's own wallet address on-chain** as
 part of the `Credential` struct (`recipient`, `transferCredential` — see
-root PRD §Smart Contract Interface). That's a deliberate, already-built
+root PRD Smart Contract Interface). That's a deliberate, already-built
 design choice, not something this PRD revisits.
 
 On the *issuer* side, VeriCred already has a Credly-equivalent mechanism:
@@ -100,18 +100,18 @@ project, not because the reference model is wrong.
 [Blockcerts cert-issuer](https://github.com/blockchain-certificates/cert-issuer) ·
 [Accredible — Blockchain Verification](https://help.accredible.com/hc/en-us/articles/115003654829-Blockchain-Verification)
 
-## 5. User Roles Affected
+## 5.0 User Roles Affected
 
-Extends root PRD's **Recipient** and **Issuer** roles (§User Roles) with a
+Extends root PRD's **Recipient** and **Issuer** roles (User Roles) with a
 formal registration path for each, plus a new **pending institution** state
 that only **Admin** can resolve.
 
-## 6. User Flows
+## 6.0 User Flows
 
 ### 6.1 Registration chooser — `/register`
 
 Split-screen: two large panels, "I'm an individual" / "I'm an institution."
-No form fields on this page — it only routes to §6.2 or §6.3.
+No form fields on this page — it only routes to 6.2 or 6.3.
 
 ### 6.2 Individual registration — `/register/user`
 
@@ -121,9 +121,9 @@ SIWE via `@reown/appkit`) — plus the existing GitHub/Google/LinkedIn OAuth
 buttons.
 
 Email/password path → account created with `emailVerified: null` →
-mandatory SendGrid verification email → login blocked until verified (§6.5).
+mandatory SendGrid verification email → login blocked until verified (6.5).
 OAuth path → account created immediately (adapter default), but routed to
-`/onboarding` (§6.4) before reaching any other page.
+`/onboarding` (6.4) before reaching any other page.
 
 ### 6.3 Institution registration — `/register/institution`
 
@@ -133,8 +133,8 @@ hotmail.com, icloud.com, etc.), username, password, confirm password,
 **institution wallet connect + sign** (required, SIWE, proves ownership).
 
 Submission creates `User(role: USER)` + `Issuer(status: PENDING)` — **not**
-`role: ISSUER` yet. Mandatory email verification applies (§6.5). The
-account cannot reach the issuer dashboard until an admin approves (§6.6).
+`role: ISSUER` yet. Mandatory email verification applies (6.5). The
+account cannot reach the issuer dashboard until an admin approves (6.6).
 
 ### 6.4 OAuth onboarding gate — `/onboarding`
 
@@ -143,7 +143,7 @@ first callback if `username` or `walletAddress` is still null. Collects
 both (wallet via SIWE signature) before releasing the user to any other
 route. Enforced in the `(authenticated)` layout, which today only checks
 `session.user` exists — gains a completeness check for OAuth-created
-accounts. Institutions never reach this page (no OAuth path for them, §6.3).
+accounts. Institutions never reach this page (no OAuth path for them, 6.3).
 
 ### 6.5 Mandatory email verification
 
@@ -161,12 +161,12 @@ New admin-panel section: **Pending Institutions**, listing every
 `Issuer.status === PENDING` row (organization name, contact email, wallet
 address, submitted date). Two actions:
 
-- **Approve** — fully synchronous (§7, Decision 7): provisions an operator
+- **Approve** — fully synchronous (7.0, Decision 7): provisions an operator
   wallet (`lib/operator-wallet.ts`), calls `authoriseInstitution` on-chain
   for *both* the institution's registered wallet and the new operator
   wallet (reusing `/api/institutions`' existing signing logic), and only on
   success flips `User.role → ISSUER` + `Issuer.status → APPROVED` and sends
-  the welcome email (§6.7). Any failure leaves the row untouched and
+  the welcome email (6.7). Any failure leaves the row untouched and
   surfaces an error to the admin.
 - **Reject** — sets `Issuer.status → REJECTED` with a mandatory reason
   (consistent with the existing credential-revocation pattern's
@@ -197,7 +197,7 @@ From issuer settings: institution proves ownership of a *new* address
 the DB — all-or-nothing, so an abandoned old wallet is never left authorised
 to issue credentials on the institution's behalf.
 
-## 7. Architectural Decisions
+## 7.0 Architectural Decisions
 
 Numbered for traceability back to the design interview that produced them.
 
@@ -218,7 +218,7 @@ Numbered for traceability back to the design interview that produced them.
 | 11 | Wallet changes post-approval auto re-authorize on-chain, all-or-nothing | Never leaves an abandoned wallet authorised |
 | 12 | Multi-user-per-institution stays out of scope; wallet UI unified on `@reown/appkit`/SIWE; username regex `^[a-z0-9_-]{3,32}$` | Low-controversy defaults, consistent with existing patterns |
 
-## 8. Data Model Changes (Prisma)
+## 8.0 Data Model Changes (Prisma)
 
 ```prisma
 enum IssuerStatus {
@@ -244,7 +244,7 @@ A new migration must also backfill/verify the single existing seeded
 `Issuer` row satisfies the new `@unique` constraint on `walletAddress`
 before it can be applied.
 
-## 9. API Surface (new / changed)
+## 9.0 API Surface (new / changed)
 
 | Endpoint | Method | Purpose |
 |---|---|---|
@@ -253,13 +253,13 @@ before it can be applied.
 | `/api/auth/register/verify-email` | GET | Registration-time email verification link handler (extends `pendingEmail` pattern) |
 | `/api/onboarding` | POST | OAuth users complete username + wallet after first callback |
 | `/api/institutions/pending` | GET | Admin: list `Issuer.status = PENDING` rows |
-| `/api/institutions/[id]/approve` | POST | Admin: synchronous approval (§6.6) |
+| `/api/institutions/[id]/approve` | POST | Admin: synchronous approval (6.6) |
 | `/api/institutions/[id]/reject` | POST | Admin: set `REJECTED` + reason |
-| `/api/issuer/wallet` | PATCH | Institution: change `Issuer.walletAddress` (signature + auto re-auth, §6.9) |
+| `/api/issuer/wallet` | PATCH | Institution: change `Issuer.walletAddress` (signature + auto re-auth, 6.9) |
 | `/api/wallet/link` | POST (changed) | Personal wallet linking — signature now required, not optional; adds cross-table uniqueness check against `Issuer.walletAddress` |
-| Auth.js `institution` credentials provider | — | New provider in `lib/auth.ts`: validates password AND wallet signature together (§6.8) |
+| Auth.js `institution` credentials provider | — | New provider in `lib/auth.ts`: validates password AND wallet signature together (6.8) |
 
-## 10. On-Chain Interaction Summary
+## 10.0 On-Chain Interaction Summary
 
 ```
 Institution registration
@@ -286,7 +286,7 @@ mirroring `prisma/seed.ts`'s existing simulated funding step, now a real
 instruction shown to approved institutions rather than a developer-only
 script action.
 
-## 11. Out of Scope / Deferred
+## 11.0 Out of Scope / Deferred
 
 - Multi-staff accounts per institution (would require an `Issuer` ↔ `User`
   join model, replacing the current 1:1 relation).
@@ -298,7 +298,7 @@ script action.
   Merkle-batch anchoring (would drop on-chain recipient identity entirely
   — a materially different project).
 
-## 12. Verification / Test Plan
+## 12.0 Verification / Test Plan
 
 - Unit/integration tests (Vitest, per existing `frontend/src/**/*.test.ts`
   patterns) for: registration validation (username regex, freemail
