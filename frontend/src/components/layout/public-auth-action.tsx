@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useSession } from "next-auth/react";
-import { Button } from "@/components/ui/button";
+import { LinkButton } from "@/components/ui/link-button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -22,24 +21,19 @@ export function PublicAuthAction() {
   if (status === "authenticated" && session.user) {
     const initials = (session.user.name || session.user.email || "?").slice(0, 2).toUpperCase();
     return (
-      <Button
-        render={<Link href="/dashboard" />}
-        nativeButton={false}
-        variant="outline"
-        className="gap-2 pl-2"
-      >
+      <LinkButton href="/dashboard" variant="outline" className="gap-2 pl-2">
         <Avatar size="sm">
           <AvatarImage src={session.user.image ?? undefined} alt={session.user.name ?? "User"} />
           <AvatarFallback>{initials}</AvatarFallback>
         </Avatar>
         Dashboard
-      </Button>
+      </LinkButton>
     );
   }
 
   return (
-    <Button render={<Link href="/login" />} nativeButton={false} variant="outline">
+    <LinkButton href="/login" variant="outline">
       Sign In
-    </Button>
+    </LinkButton>
   );
 }

@@ -1,4 +1,4 @@
-import { randomUUID } from "crypto";
+import { randomBytes, randomUUID } from "crypto";
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import type { Role } from "@/types";
@@ -47,7 +47,8 @@ export async function createIssuer(overrides: Partial<{ organizationName: string
     data: {
       userId: user.id,
       organizationName: overrides.organizationName ?? "Test University",
-      walletAddress: `0x${randomUUID().replace(/-/g, "").slice(0, 40)}`,
+      walletAddress: `0x${randomBytes(20).toString("hex")}`,
+      status: "APPROVED",
     },
   });
   return { user, issuer };

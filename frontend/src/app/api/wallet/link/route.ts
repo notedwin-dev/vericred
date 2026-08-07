@@ -4,14 +4,15 @@ import { Prisma } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { autoAnchorCertificates } from "@/lib/anchor";
+import { findWalletConflict } from "@/lib/wallet";
 
 /**
  * POST /api/wallet/link
  *
- * Links a wallet address to the authenticated user's account. If a
- * `signature` (over `message`) is provided, it is verified against the
- * claimed address so the user proves ownership of the wallet before it's
- * attached — otherwise the address is stored unverified.
+ * Links a wallet address to the authenticated user's account. A `signature`
+ * (over `message`) is required and verified against the claimed address,
+ * so the user always proves ownership of the wallet before it's attached
+ * (docs/institution-registration-prd.md Decision 9a).
  *
  * Also retroactively anchors any of this user's certificates that were
  * left without a wallet: unclaimed PENDING ones issued straight to their
@@ -40,21 +41,23 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "A valid wallet address is required" }, { status: 400 });
   }
 
-  if (message && signature) {
-    try {
-      const recovered = verifyMessage(message, signature);
-      if (recovered.toLowerCase() !== address.toLowerCase()) {
-        return NextResponse.json({ error: "Signature does not match the provided address" }, { status: 400 });
-      }
-    } catch {
-      return NextResponse.json({ error: "Could not verify signature" }, { status: 400 });
+  if (!message || !signature) {
+    return NextResponse.json({ error: "A wallet signature is required" }, { status: 400 });
+  }
+
+  try {
+    const recovered = verifyMessage(message, signature);
+    if (recovered.toLowerCase() !== address.toLowerCase()) {
+      return NextResponse.json({ error: "Signature does not match the provided address" }, { status: 400 });
     }
+  } catch {
+    return NextResponse.json({ error: "Could not verify signature" }, { status: 400 });
   }
 
   const normalized = address.toLowerCase();
 
-  const existing = await prisma.user.findUnique({ where: { walletAddress: normalized } });
-  if (existing && existing.id !== session.user.id) {
+  const conflict = await findWalletConflict(normalized);
+  if (conflict && !(conflict.type === "user" && conflict.ownerId === session.user.id)) {
     return NextResponse.json({ error: "This wallet is already linked to another account" }, { status: 409 });
   }
 

@@ -3,8 +3,6 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthSessionProvider } from "@/providers/session-provider";
 import { ThemeProvider } from "@/providers/theme-provider";
-import { Web3Provider } from "@/providers/web3-provider";
-import { AppKitProvider } from "@/providers/appkit-provider";
 import { Toaster } from "@/components/ui/sonner";
 
 const geistSans = Geist({
@@ -41,12 +39,23 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <AuthSessionProvider>
-            <AppKitProvider>
-              <Web3Provider>
-                {children}
-                <Toaster position="top-right" richColors closeButton />
-              </Web3Provider>
-            </AppKitProvider>
+            {/*
+              Neither AppKitProvider nor Web3Provider is mounted here, on
+              purpose. Anything imported by this layout lands in the
+              compilation unit of *every* route, including the landing page and
+              the public verification pages that never touch a wallet.
+
+              AppKitProvider's module scope calls createAppKit(), pulling in the
+              whole @reown/appkit graph (~51MB on disk, Lit web components with
+              it); Web3Provider pulls ethers (~10MB). Together they took the
+              landing page from ~1.1k modules to ~9.2k, and its first dev
+              compile from ~8s to ~48s.
+
+              Both are mounted per-route instead — see
+              providers/appkit-provider.tsx and docs/dev-performance.md.
+            */}
+            {children}
+            <Toaster position="top-right" richColors closeButton />
           </AuthSessionProvider>
         </ThemeProvider>
       </body>

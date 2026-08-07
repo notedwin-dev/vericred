@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { generateCredentialId } from "@/lib/credential";
-import { generateCertificate } from "@/lib/generate-certificate";
+import { generateCertificate, type GeneratedCertificate } from "@/lib/generate-certificate";
 import { autoAnchorCertificate } from "@/lib/anchor";
 import { RouteError } from "@/lib/route-error";
 import type { ClaimCollectionLinkInput } from "@/types";
@@ -114,21 +114,32 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   }
 
   const credentialId = generateCredentialId();
-  let cid: string;
+  // Hoisted so the row and the rendered document agree. The public preview
+  // re-renders from the stored issuedAt, so letting the column fall back to
+  // @default(now()) while the PDF was drawn with a different `new Date()`
+  // would make the preview visibly disagree with the artifact.
+  const issuedAt = new Date();
+  let artifact: GeneratedCertificate;
   try {
-    const generated = await generateCertificate({
+    artifact = await generateCertificate({
       credentialId,
       recipientName,
       courseName: linkPeek.course.name,
       issuerName: linkPeek.course.issuer.organizationName,
       templateLayout: (linkPeek.course.template.layout as Record<string, string>) ?? {},
-      issuedAt: new Date(),
+      issuedAt,
+      // No grade on this path by design: a self-service claimer must not be
+      // able to set their own classification.
       verifyUrl: new URL(`/verify/${encodeURIComponent(credentialId)}`, request.nextUrl.origin).toString(),
     });
-    cid = generated.cid;
   } catch (error) {
     console.error("Failed to generate certificate PDF:", error);
     return NextResponse.json({ error: "Failed to generate certificate PDF" }, { status: 502 });
+  }
+
+  if (artifact.mock && process.env.NODE_ENV === "production") {
+    console.error("Refusing to issue a certificate with a mock IPFS CID — Pinata is not configured.");
+    return NextResponse.json({ error: "Certificate issuance is unavailable right now." }, { status: 503 });
   }
 
   try {
@@ -161,8 +172,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           recipientEmail,
           recipientId: session.user.id,
           courseId: link.courseId,
-          cid,
+          cid: artifact.cid,
+          contentHash: artifact.contentHash,
+          computedCid: artifact.computedCid,
+          encKeyEnc: artifact.encKeyEnc,
           walletAddress,
+          issuedAt,
           expiresAt: link.certExpiresAt,
           status: "PENDING",
         },

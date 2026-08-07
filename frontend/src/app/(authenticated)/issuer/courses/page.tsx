@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Plus, BookOpen } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { LinkButton } from "@/components/ui/link-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { IssuerNav } from "@/components/issuer/issuer-nav";
@@ -45,10 +45,10 @@ export default function CoursesPage() {
             Certificate programs your institution issues.
           </p>
         </div>
-        <Button render={<Link href="/issuer/courses/new" />} nativeButton={false} className="gap-1.5">
+        <LinkButton href="/issuer/courses/new" className="gap-1.5">
           <Plus className="size-4" />
           New Course
-        </Button>
+        </LinkButton>
       </div>
 
       <IssuerNav />
@@ -79,10 +79,10 @@ export default function CoursesPage() {
               Create a course to start issuing certificates.
             </p>
           </div>
-          <Button render={<Link href="/issuer/courses/new" />} nativeButton={false} size="sm" className="mt-1 gap-1.5">
+          <LinkButton href="/issuer/courses/new" size="sm" className="mt-1 gap-1.5">
             <Plus className="size-4" />
             New Course
-          </Button>
+          </LinkButton>
         </div>
       )}
 

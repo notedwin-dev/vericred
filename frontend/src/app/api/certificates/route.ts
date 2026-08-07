@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { generateCredentialId } from "@/lib/credential";
-import { generateCertificate } from "@/lib/generate-certificate";
+import { generateCertificate, type GeneratedCertificate } from "@/lib/generate-certificate";
 import type { IssueCertificateInput } from "@/types";
 
 /**
@@ -102,7 +102,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { recipientName, recipientEmail, recipientId, courseId, walletAddress, expiresAt } = body ?? {};
+  const { recipientName, recipientEmail, recipientId, courseId, walletAddress, expiresAt, grade } =
+    body ?? {};
+
+  // Goes on the encrypted artifact only — never on the public preview or in
+  // the public verify response. See docs/encrypted-certificates.md.
+  const trimmedGrade = typeof grade === "string" && grade.trim() ? grade.trim().slice(0, 64) : undefined;
 
   if (!recipientName || typeof recipientName !== "string" || !recipientName.trim()) {
     return NextResponse.json({ error: "recipientName is required" }, { status: 400 });
@@ -162,21 +167,29 @@ export async function POST(request: NextRequest) {
   }
 
   const issuedAt = new Date();
-  let cid: string;
+  let artifact: GeneratedCertificate;
   try {
-    const generated = await generateCertificate({
+    artifact = await generateCertificate({
       credentialId,
       recipientName: recipientName.trim(),
       courseName: course.name,
       issuerName: course.issuer.organizationName,
       templateLayout: (course.template.layout as Record<string, string>) ?? {},
       issuedAt,
+      grade: trimmedGrade,
       verifyUrl: new URL(`/verify/${encodeURIComponent(credentialId)}`, request.nextUrl.origin).toString(),
     });
-    cid = generated.cid;
   } catch (error) {
     console.error("Failed to generate certificate PDF:", error);
     return NextResponse.json({ error: "Failed to generate certificate PDF" }, { status: 502 });
+  }
+
+  // A mock CID resolves to nothing on any gateway, so the artifact would be
+  // permanently unretrievable and the certificate unverifiable. The avatar
+  // route already refuses one in production; certificates never did.
+  if (artifact.mock && process.env.NODE_ENV === "production") {
+    console.error("Refusing to issue a certificate with a mock IPFS CID — Pinata is not configured.");
+    return NextResponse.json({ error: "Certificate issuance is unavailable right now." }, { status: 503 });
   }
 
   try {
@@ -187,7 +200,11 @@ export async function POST(request: NextRequest) {
         recipientEmail: recipientEmail || null,
         recipientId: recipientId || null,
         courseId,
-        cid,
+        cid: artifact.cid,
+        contentHash: artifact.contentHash,
+        computedCid: artifact.computedCid,
+        encKeyEnc: artifact.encKeyEnc,
+        grade: trimmedGrade,
         walletAddress: walletAddress || null,
         issuedAt,
         expiresAt: expiresAtDate,

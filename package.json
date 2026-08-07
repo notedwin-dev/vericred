@@ -7,10 +7,14 @@
     "test": "hardhat test",
     "node": "hardhat node",
     "deploy": "hardhat run scripts/deploy.js --network localhost",
-    "seed": "hardhat run scripts/seed.js --network localhost"
+    "seed": "hardhat run scripts/seed.js --network localhost",
+    "dev": "concurrently -n hardhat,frontend -c \"blue.bold,cyan.bold\" --kill-others-on-fail \"npm run node\" \"npm run dev --prefix frontend\"",
+    "wait-for-node": "node scripts/wait-for-node.js",
+    "dev:fresh": "concurrently -n hardhat,app -c \"blue.bold,cyan.bold\" --kill-others-on-fail \"npm run node\" \"npm run wait-for-node && npm run deploy && npm run seed && npm run dev --prefix frontend\""
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "concurrently": "^10.0.4",
     "hardhat": "^2.22.0"
   }
 }

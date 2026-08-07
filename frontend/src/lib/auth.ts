@@ -1,18 +1,50 @@
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import type { NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import GitHub from "next-auth/providers/github";
 import Google from "next-auth/providers/google";
 import LinkedIn from "next-auth/providers/linkedin";
 import { PrismaAdapter } from "@auth/prisma-adapter";
-import bcrypt from "bcrypt";
 import { cookies } from "next/headers";
 import { SiweMessage } from "siwe";
 import { prisma } from "@/lib/prisma";
 import { LINK_INTENT_COOKIE, LINK_INTENT_TTL_MS, verifyLinkIntent } from "@/lib/link-intent";
+import {
+  AuthorizationError,
+  assertWalletIsNotInstitution,
+  authorizeEmailPassword,
+  authorizeInstitution,
+} from "@/lib/auth-credentials";
 import type { Role } from "@/types";
 
 const NEXTAUTH_DOMAIN = process.env.NEXTAUTH_URL ? new URL(process.env.NEXTAUTH_URL).host : undefined;
+
+class CredentialsAuthError extends CredentialsSignin {
+  code: string;
+
+  constructor(code: string) {
+    super(code);
+    this.code = code;
+  }
+}
+
+/**
+ * Runs a framework-free authorizer from lib/auth-credentials.ts, translating
+ * its AuthorizationError into the CredentialsSignin subclass Auth.js needs in
+ * order to put a `code` in the sign-in redirect URL. Keeping the translation
+ * here is what lets the authorization rules themselves be tested without
+ * booting NextAuth.
+ */
+async function runAuthorizer<T>(authorizer: () => Promise<T>): Promise<T> {
+  try {
+    return await authorizer();
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      throw new CredentialsAuthError(error.code);
+    }
+    throw error;
+  }
+}
 
 export const authConfig: NextAuthConfig = {
   adapter: PrismaAdapter(prisma),
@@ -42,35 +74,20 @@ export const authConfig: NextAuthConfig = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        const email = credentials?.email;
-        const password = credentials?.password;
-
-        if (typeof email !== "string" || typeof password !== "string") {
-          return null;
-        }
-
-        const user = await prisma.user.findUnique({
-          where: { email: email.toLowerCase() },
-        });
-
-        if (!user || !user.passwordHash) {
-          return null;
-        }
-
-        const isValid = await bcrypt.compare(password, user.passwordHash);
-        if (!isValid) {
-          return null;
-        }
-
-        return {
-          id: user.id,
-          name: user.name,
-          username: user.username,
-          email: user.email,
-          image: user.image,
-          role: user.role,
-          walletAddress: user.walletAddress,
-        };
+        return runAuthorizer(() => authorizeEmailPassword(credentials?.email, credentials?.password));
+      },
+    }),
+    Credentials({
+      id: "institution",
+      name: "Institution",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+        message: { label: "Message", type: "text" },
+        signature: { label: "Signature", type: "text" },
+      },
+      async authorize(credentials) {
+        return runAuthorizer(() => authorizeInstitution(credentials ?? {}));
       },
     }),
     Credentials({
@@ -126,6 +143,10 @@ export const authConfig: NextAuthConfig = {
         }
 
         const walletAddress = siwe.address.toLowerCase();
+
+        // An institution's on-chain identity is not a personal login — see the
+        // rule in lib/auth-credentials.ts for what went wrong without it.
+        await runAuthorizer(() => assertWalletIsNotInstitution(walletAddress));
 
         let user = await prisma.user.findUnique({ where: { walletAddress } });
         if (!user) {
