@@ -1814,7 +1814,7 @@ The claim that verification requires nothing of the verifier is the project's ce
 #### 8.1.1 Landing page
 
 ![Landing page hero](./images/01-landing-hero.jpg)
-**Figure 8.1 — `/` landing page.** Deliberately carries **no navigation bar** (`PRD.md` F1). The two calls to action separate the two audiences the system serves: "Verify a Credential" needs no account, "Get Started" leads to registration. The badge reads "Built on blockchain · Anchored to IPFS", which is the hybrid storage model stated in one line.
+**Figure 8.1 — `/` landing page.** Deliberately carries **no navigation bar** (`01_PRD.md` F1). The two calls to action separate the two audiences the system serves: "Verify a Credential" needs no account, "Get Started" leads to registration. The badge reads "Built on blockchain · Anchored to IPFS", which is the hybrid storage model stated in one line.
 
 ![Landing page how it works](./images/02-landing-how-it-works.jpg)
 **Figure 8.2 — `/` "How it works".** The three steps correspond exactly to the architecture of 2.0: *Issue* (render, encrypt, pin to IPFS), *Anchor* (write the CID on-chain), *Verify* (anyone, free, no account). The footer is the only chrome on the page.
@@ -1850,7 +1850,7 @@ The claim that verification requires nothing of the verifier is the project's ce
 **Figure 8.10 — `/register/institution`.** Note three institution-specific rules made visible: the contact email must be on the institution's own domain ("personal addresses (Gmail, Outlook…) are rejected"), and the wallet must be one "the institution controls, not a personal one — it becomes your on-chain issuing identity, you'll sign in with it every time, and it funds the gas for anchoring credentials." There is deliberately no OAuth option.
 
 ![Sign in](./images/10-login.jpg)
-**Figure 8.11 — `/login`.** Six sign-in methods in the order specified by `PRD.md`: WalletConnect first (primary), then GitHub/Google/LinkedIn, then email and password. The footer links institutions to their separate form.
+**Figure 8.11 — `/login`.** Six sign-in methods in the order specified by `01_PRD.md`: WalletConnect first (primary), then GitHub/Google/LinkedIn, then email and password. The footer links institutions to their separate form.
 
 ![Institution sign in](./images/22-login-institution.jpg)
 **Figure 8.12 — `/login/institution`.** The distinguishing rule is in the subtitle: "Institutions sign in with their password *and* their registered on-chain wallet." Unlike personal wallet-linking, which proves ownership once, an institution proves control of its key on **every** sign-in.
@@ -2081,7 +2081,7 @@ First, `@react-pdf` Flate-compresses its content streams. Consequently, `pdf.inc
 
 ### 9.5 Demonstration Scenario
 
-The following sequence exercises the complete system and corresponds to the demonstration flow specified in `docs/PRD.md`.
+The following sequence exercises the complete system and corresponds to the demonstration flow specified in `docs/01_PRD.md`.
 
 1. **Issue.** Sign in as the seeded issuer, create a template and a course, and issue a certificate. Observe the PDF being generated, encrypted, and pinned, and the credential being anchored on-chain from the connected wallet.
 2. **Verify.** In a private browsing window — no account, no wallet — visit `/verify/[credentialId]` and observe the "Valid" result together with the issuer, date, CID, and transaction hash.
@@ -2144,7 +2144,7 @@ The limitations below are of a different character from those above: each is a p
 
 - **Local deployment only.** The contract is deployed to a Hardhat node at chain 31337. Deployment to a public testnet would require a funded deployer account and a block explorer URL; the code path is otherwise unchanged, as the explorer link is rendered conditionally on `NEXT_PUBLIC_BLOCK_EXPLORER_URL` being set.
 - **`transferCredential` is not yet surfaced.** The contract implements wallet migration and it is covered by thirteen tests, but no front-end control currently invokes it; changing a linked wallet does not presently transfer existing credentials on-chain.
-- **No custody wallet on e-mail signup.** `docs/PRD.md` F2 anticipated generating a custody wallet for email-and-password users. The `custodyAddress` and `custodyKeyEnc` columns exist but nothing populates them; such users have no wallet until they link one.
+- **No custody wallet on e-mail signup.** `docs/01_PRD.md` F2 anticipated generating a custody wallet for email-and-password users. The `custodyAddress` and `custodyKeyEnc` columns exist but nothing populates them; such users have no wallet until they link one.
 - **Holder download requires real Pinata credentials.** In local development the mock CID resolves to nothing, so this path returns an honest HTTP 502 rather than silently falling back to a re-render.
 
 ### 10.8 Future Work
@@ -2277,7 +2277,7 @@ The following records in `docs/` provide fuller treatment of requirements and de
 
 | Document | Subject |
 |---|---|
-| `docs/PRD.md` | Product requirements: user roles, features F1–F15, contract interface, demonstration flow |
+| `docs/01_PRD.md` | Product requirements: user roles, features F1–F15, contract interface, demonstration flow |
 | `docs/encrypted-certificates.md` | Encrypted-artefact design: key custody, the privacy split, integrity methods, legacy rows |
 | `docs/institution-registration-prd.md` | Institution registration, wallet architecture, and the administrator approval flow |
 | `docs/dev-performance.md` | Provider-scoping analysis, benchmark harness, and before/after compilation measurements |

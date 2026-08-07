@@ -2,7 +2,7 @@
 
 **Module:** CT124-3-3-BCD — Blockchain Development
 **Group:** 14 · Asia Pacific University of Technology and Innovation
-**Companion documents:** [`setup.md`](./setup.md) · [`design.md`](./design.md) · [`PRD.md`](./PRD.md)
+**Companion documents:** [`04_setup.md`](./04_setup.md) · [`03_design.md`](./03_design.md) · [`01_PRD.md`](./01_PRD.md)
 
 ### Group Members
 
@@ -190,7 +190,7 @@ The nonce is bound to the session's CSRF token and verified server-side, which i
 | Assumption | Status |
 |---|---|
 | Wallet migration transfers credentials on-chain (A7) | `transferCredential` is implemented and covered by 13 contract tests, but **no front-end control invokes it**. Changing a linked wallet does not transfer existing credentials. |
-| E-mail/password signup provisions a custody wallet | `PRD.md` F2 anticipates this. `User.custodyAddress` and `custodyKeyEnc` exist; **nothing populates them**. Such users have no wallet until they link one. |
+| E-mail/password signup provisions a custody wallet | `01_PRD.md` F2 anticipates this. `User.custodyAddress` and `custodyKeyEnc` exist; **nothing populates them**. Such users have no wallet until they link one. |
 | Legacy certificates can be integrity-checked | Rows predating encryption have neither reference value. They report `unavailable / legacy`, never `mismatch` — deliberately, since branding every historical certificate as tampered would be worse. They are **not backfilled**: re-encrypting would produce a CID disagreeing with one already anchored immutably. |
 | Holder download works in local development | It does not. The mock CID resolves to nothing, so the path honestly returns 502 rather than falling back to a re-render — a silent fallback would mask the tampering the check exists to catch. |
 | Contract errors are decoded from their selector | `parseContractError` performs **substring matching on the error name** in whatever message ethers surfaces, against a hard-coded table. Functionally adequate, but more brittle than ABI selector decoding. |

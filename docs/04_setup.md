@@ -2,7 +2,7 @@
 
 **Module:** CT124-3-3-BCD — Blockchain Development
 **Group:** 14 · Asia Pacific University of Technology and Innovation
-**Companion documents:** [`assumptions.md`](./assumptions.md) · [`design.md`](./design.md) · [`PRD.md`](./PRD.md)
+**Companion documents:** [`02_assumptions.md`](./02_assumptions.md) · [`03_design.md`](./03_design.md) · [`01_PRD.md`](./01_PRD.md)
 
 ### Group Members
 
@@ -373,7 +373,7 @@ The shortest path to seeing the system work end-to-end.
 5. Copy the credential ID (format `VC-2026-XXXXXXXX`).
 6. Open a **private browsing window** — no account, no wallet — and visit `/verify/<credentialId>`. You should see the verification result with issuer, date, CID and transaction hash.
 
-> **Note on step 6 for revocation.** If you revoke the certificate and re-verify, the page will show "Revoked". Be aware that this verdict currently comes from the off-chain index only — the on-chain `revokeCredential` transaction is **not yet wired into the application**. See [`assumptions.md`](./assumptions.md) 7.1.
+> **Note on step 6 for revocation.** Revoking the certificate and re-verifying shows "Revoked". The revocation is also **anchored on-chain** where a permitted signer is available — the institution's operator wallet if it anchored the credential, otherwise `ADMIN_PRIVATE_KEY`. A certificate that was never anchored has nothing on-chain to revoke, so the revocation is recorded off-chain only and the interface says so rather than claiming success. See [`02_assumptions.md`](./02_assumptions.md) 7.1.
 
 ---
 
