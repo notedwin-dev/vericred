@@ -9,6 +9,15 @@
 **Repository:** `vericred/` — Solidity smart contract, Hardhat toolchain, Next.js 15 application, PostgreSQL database
 **Licence:** MIT
 
+### Group Members
+
+| Name | TP Number |
+|---|---|
+| Leanard Tang YiShiun | TP070029 |
+| Low Teck Chi | TP064234 |
+| Tan Jun Hong | TP071266 |
+| Ng Jian Hwa | TP070698 |
+
 ---
 
 ## Abstract

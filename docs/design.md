@@ -4,6 +4,15 @@
 **Group:** 14 · Asia Pacific University of Technology and Innovation
 **Companion documents:** [`assumptions.md`](./assumptions.md) · [`setup.md`](./setup.md) · [`PRD.md`](./PRD.md)
 
+### Group Members
+
+| Name | TP Number |
+|---|---|
+| Leanard Tang YiShiun | TP070029 |
+| Low Teck Chi | TP064234 |
+| Tan Jun Hong | TP071266 |
+| Ng Jian Hwa | TP070698 |
+
 ---
 
 ## Contents
